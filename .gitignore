@@ -1,0 +1,44 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# PHP / Laravel (backend)
+/vendor/
+**/vendor/
+/backend/storage/*.key
+**/storage/framework/cache/*
+**/storage/framework/sessions/*
+**/storage/framework/testing/*
+**/storage/framework/views/*
+**/storage/logs/*
+**/bootstrap/cache/*
+!**/.gitignore
+
+# Node / Vite (frontend)
+node_modules/
+dist/
+.vite/
+*.local
+
+# Test & analysis output
+coverage/
+.phpunit.result.cache
+.phpunit.cache/
+.pest.cache/
+.phpstan.cache/
+/build/
+
+# Docker volumes
+pgdata/
+redisdata/
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+*.swp
