@@ -1,0 +1,19 @@
+# Deptrac configuration for Module_Boundary and Backend_Layer_Chain enforcement
+# (Requirements 22.2, 22.4, 22.8, 38.1, 38.8).
+#
+# Placeholder: a single `Application` layer covering app/ so the configuration is
+# runnable from the first commit. Task 32.1 replaces it with the 14 module layers,
+# the layer-chain layers, and the ruleset, each paired with a fixture proving the
+# rule fails on a violation.
+deptrac:
+  paths:
+    - ./app
+
+  layers:
+    - name: Application
+      collectors:
+        - type: directory
+          value: app/.*
+
+  ruleset:
+    Application: ~

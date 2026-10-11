@@ -1,0 +1,16 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 8
+
+    paths:
+        - app
+        - database
+        - routes
+        - tests
+
+    # Custom rules for the Backend_Layer_Chain (Requirement 38.8), Payment_Provider
+    # containment (Requirement 36.6), and cross-module model references
+    # (Requirement 22.8) are registered in task 32.1.
+    #services: []

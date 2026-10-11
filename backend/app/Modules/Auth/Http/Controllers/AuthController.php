@@ -1,0 +1,67 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Auth\Http\Controllers;
+
+use App\Modules\Auth\Http\Requests\LoginRequest;
+use App\Modules\Auth\Http\Requests\RefreshRequest;
+use App\Modules\Auth\Http\Requests\RegisterRequest;
+use App\Modules\Auth\Services\AuthenticationService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+final class AuthController
+{
+    public function __construct(private readonly AuthenticationService $auth) {}
+
+    public function register(RegisterRequest $request): JsonResponse
+    {
+        $user = $this->auth->register(
+            $request->string('email')->toString(),
+            $request->string('password')->toString(),
+            $request->string('display_name')->toString(),
+        );
+
+        return new JsonResponse(['data' => $user], 201);
+    }
+
+    public function login(LoginRequest $request): JsonResponse
+    {
+        $tokens = $this->auth->login(
+            $request->string('email')->toString(),
+            $request->string('password')->toString(),
+        );
+
+        return new JsonResponse(['data' => $tokens], 201);
+    }
+
+    public function refresh(RefreshRequest $request): JsonResponse
+    {
+        $tokens = $this->auth->refresh($request->string('refresh_token')->toString());
+
+        return new JsonResponse(['data' => $tokens], 201);
+    }
+
+    public function logout(Request $request): JsonResponse
+    {
+        $token = $request->attributes->get('access_token');
+
+        if (is_string($token)) {
+            $this->auth->logout($token);
+        }
+
+        return new JsonResponse(['data' => ['status' => 'ok']], 200);
+    }
+
+    public function me(Request $request): JsonResponse
+    {
+        $actor = $request->attributes->get('actor');
+
+        return new JsonResponse(['data' => [
+            'id' => $actor?->userId,
+            'role' => $actor?->role,
+            'account_status' => $actor?->accountStatus,
+        ]], 200);
+    }
+}

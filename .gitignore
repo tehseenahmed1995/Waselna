@@ -23,6 +23,9 @@ dist/
 .vite/
 *.local
 
+# Scratch / scratch logs and command outputs (never part of the repository)
+_scratch/
+
 # Test & analysis output
 coverage/
 .phpunit.result.cache
