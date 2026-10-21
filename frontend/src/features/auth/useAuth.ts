@@ -29,7 +29,10 @@ export function useCurrentUser() {
   const token = useAccessToken();
   return useQuery({
     queryKey: ['me'],
-    queryFn: () => apiFetch<{ id: string; role: string; account_status: string }>('/auth/me'),
+    queryFn: () =>
+      apiFetch<{ id: string; role: string; account_status: string; display_name: string | null; email: string | null }>(
+        '/auth/me',
+      ),
     enabled: token !== null,
     retry: false,
   });

@@ -9,6 +9,7 @@ import { CourierDashboard } from './features/courier/CourierDashboard';
 import { AdminDashboard } from './features/admin/AdminDashboard';
 import { NotificationBell } from './features/notifications/NotificationBell';
 import { useCart } from './features/cart/useCart';
+import { useEnums } from './shared/enums';
 
 type Tab = 'browse' | 'orders';
 
@@ -19,6 +20,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>('browse');
   const [focusOrderId, setFocusOrderId] = useState<string | null>(null);
   const cart = useCart();
+  const { roleLabel } = useEnums();
 
   if (token === null || me.isError) {
     return <AuthScreen />;
@@ -35,6 +37,14 @@ export function App() {
   const role = me.data?.role ?? 'customer';
   const isCustomer = role === 'customer';
   const cartCount = cart.data?.lines.reduce((n, l) => n + l.quantity, 0) ?? 0;
+
+  const displayName = me.data?.display_name ?? me.data?.email ?? 'Account';
+  const initials = displayName
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('') || 'U';
 
   const onOrderPlaced = (orderId: string) => {
     setFocusOrderId(orderId);
@@ -69,10 +79,26 @@ export function App() {
             </>
           )}
           <NotificationBell />
-          <span>{me.data?.role}</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => logout.mutate()}>
-            Sign out
-          </button>
+          <div className="user-menu">
+            <div className="user-avatar" aria-hidden="true">{initials}</div>
+            <div className="user-chip" title={me.data?.email ?? undefined}>
+              <span className="user-chip-name">{displayName}</span>
+              <span className="user-chip-role">{roleLabel(role)}</span>
+            </div>
+            <button
+              className="signout-btn"
+              onClick={() => logout.mutate()}
+              disabled={logout.isPending}
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                <polyline points="10 17 15 12 10 7" />
+                <line x1="15" y1="12" x2="3" y2="12" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 

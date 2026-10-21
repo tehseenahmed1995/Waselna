@@ -461,3 +461,90 @@ h3 {
   padding: 22px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.25);
 }
+
+/* Topbar account cluster: avatar + identity + sign-out, grouped in one pill. */
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  flex: none;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.18);
+}
+
+.user-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+
+.user-chip-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-chip-role {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.signout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex: none;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.signout-btn:hover:not(:disabled) {
+  background: #fde7e4;
+  color: var(--danger);
+  transform: translateX(1px);
+}
+
+.signout-btn:active:not(:disabled) {
+  transform: translateX(1px) scale(0.94);
+}
+
+.signout-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.signout-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

@@ -7,6 +7,7 @@ namespace App\Modules\Auth\Http\Controllers;
 use App\Modules\Auth\Http\Requests\LoginRequest;
 use App\Modules\Auth\Http\Requests\RefreshRequest;
 use App\Modules\Auth\Http\Requests\RegisterRequest;
+use App\Modules\Auth\Models\User;
 use App\Modules\Auth\Services\AuthenticationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,11 +58,17 @@ final class AuthController
     public function me(Request $request): JsonResponse
     {
         $actor = $request->attributes->get('actor');
+        $userId = $actor?->userId;
+
+        /** @var User|null $user */
+        $user = $userId !== null ? User::query()->find($userId) : null;
 
         return new JsonResponse(['data' => [
-            'id' => $actor?->userId,
+            'id' => $userId,
             'role' => $actor?->role,
             'account_status' => $actor?->accountStatus,
+            'display_name' => $user?->display_name,
+            'email' => $user?->email,
         ]], 200);
     }
 }
