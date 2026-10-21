@@ -43,6 +43,15 @@ final class AdminServiceProvider extends ServiceProvider
                 Route::get('couriers', [AdminController::class, 'couriers']);
                 Route::get('deliveries', [AdminController::class, 'deliveries']);
 
+                // Super-admin restaurant management (Requirement 37): onboard a
+                // Restaurant and force its visibility with one call.
+                Route::post('restaurants', [AdminController::class, 'createRestaurant']);
+                Route::get('restaurants/{restaurant}', [AdminController::class, 'showRestaurant']);
+                Route::patch('restaurants/{restaurant}', [AdminController::class, 'updateRestaurant']);
+                Route::delete('restaurants/{restaurant}', [AdminController::class, 'deleteRestaurant']);
+                Route::post('restaurants/{restaurant}/suspend', [AdminController::class, 'suspendRestaurant']);
+                Route::post('restaurants/{restaurant}/publish', [AdminController::class, 'publishRestaurant']);
+
                 // Platform_Configuration read and write (Requirements 37.9, 37.10).
                 Route::get('configuration', [PlatformConfigurationController::class, 'show']);
                 Route::put('configuration', [PlatformConfigurationController::class, 'update']);

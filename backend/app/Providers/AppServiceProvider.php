@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Shared\Http\Controllers\ReferenceDataController;
 use App\Shared\Http\Middleware\Cors;
 use App\Shared\Http\Middleware\SecurityHeaders;
 use App\Shared\Http\Middleware\ThrottleRequests;
@@ -21,6 +22,7 @@ use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -53,6 +55,19 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->propagateCorrelationIdentifier();
+        $this->registerReferenceDataRoute();
+    }
+
+    /**
+     * The Platform's shared vocabularies (roles, statuses, currencies). Public
+     * and unauthenticated: it is static reference data the Web_Client fetches to
+     * render labels, so values and labels live only in the backend enums.
+     */
+    private function registerReferenceDataRoute(): void
+    {
+        Route::middleware('api')->prefix('api/v1')->group(function (): void {
+            Route::get('enums', [ReferenceDataController::class, 'index']);
+        });
     }
 
     /**

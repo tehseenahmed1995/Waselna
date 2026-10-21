@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useOrder, useOrders, usePay } from './useOrders';
 import { useSubmitReview } from './useReview';
 import { money } from '../cart/useCart';
+import { useEnums } from '../../shared/enums';
 
 const PAYMENT_LABELS: Record<string, string> = {
   none: 'Not started',
@@ -13,20 +14,6 @@ const PAYMENT_LABELS: Record<string, string> = {
   refunded: 'Refunded',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  pending_payment: 'Awaiting payment',
-  confirmed: 'Confirmed',
-  preparing: 'Preparing',
-  ready_for_pickup: 'Ready for pickup',
-  assigned_to_rider: 'Rider assigned',
-  picked_up: 'Picked up',
-  out_for_delivery: 'Out for delivery',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  rejected: 'Rejected',
-  failed: 'Failed',
-  payment_failed: 'Payment failed',
-};
 
 export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
   const orders = useOrders();
@@ -35,6 +22,7 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
   const review = useSubmitReview();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const { orderStatusLabel } = useEnums();
 
   if (focusOrderId && focused.data) {
     const o = focused.data;
@@ -49,7 +37,7 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
           <div className="card-body">
             <div className="row-between">
               <h2 style={{ margin: 0 }}>Order {o.order_number}</h2>
-              <span className="badge badge-active">{STATUS_LABELS[o.status] ?? o.status}</span>
+              <span className="badge badge-active">{orderStatusLabel(o.status)}</span>
             </div>
 
             <div className="mt-4">
@@ -164,7 +152,7 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
               <div className="stack" style={{ gap: 10 }}>
                 {o.timeline.map((t, i) => (
                   <div className="row-between" key={i}>
-                    <strong style={{ fontSize: 14 }}>{STATUS_LABELS[t.status] ?? t.status}</strong>
+                    <strong style={{ fontSize: 14 }}>{orderStatusLabel(t.status)}</strong>
                     <span className="subtle">{new Date(t.at).toLocaleTimeString()}</span>
                   </div>
                 ))}
@@ -196,7 +184,7 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
             </div>
             <div style={{ textAlign: 'right' }}>
               <div className="price">{money(o.breakdown.order_total)}</div>
-              <span className="badge">{STATUS_LABELS[o.status] ?? o.status}</span>
+              <span className="badge">{orderStatusLabel(o.status)}</span>
             </div>
           </div>
         </div>

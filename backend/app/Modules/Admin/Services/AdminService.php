@@ -32,10 +32,21 @@ final class AdminService
             ->whereNotIn('status', ['pending_payment', 'payment_failed', 'cancelled', 'rejected'])
             ->sum('total_amount_minor');
 
+        // Today's window, in UTC, so the dashboard can show "today" alongside
+        // the all-time figures (Requirement 37: Administrator oversight surface).
+        $startOfToday = now()->utc()->startOfDay();
+
+        $grossToday = (int) Order::query()
+            ->where('created_at', '>=', $startOfToday)
+            ->whereNotIn('status', ['pending_payment', 'payment_failed', 'cancelled', 'rejected'])
+            ->sum('total_amount_minor');
+
         return [
             'orders_total' => Order::query()->count(),
+            'orders_today' => Order::query()->where('created_at', '>=', $startOfToday)->count(),
             'orders_by_status' => $ordersByStatus,
             'gross_revenue' => ['amount' => $gross, 'currency' => 'USD'],
+            'gross_revenue_today' => ['amount' => $grossToday, 'currency' => 'USD'],
             'restaurants' => Restaurant::query()->count(),
             'couriers' => User::query()->where('role', 'courier')->count(),
             'active_deliveries' => DeliveryJob::query()

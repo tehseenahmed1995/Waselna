@@ -1,4 +1,5 @@
 import { money } from '../cart/useCart';
+import { useEnums } from '../../shared/enums';
 import {
   useRestaurantQueue,
   useAcceptOrder,
@@ -6,13 +7,11 @@ import {
   useRejectOrder,
 } from './useRestaurantOrders';
 
-const STATUS_LABELS: Record<string, string> = {
+// Kitchen-view wording overrides a couple of the shared status labels; anything
+// not listed falls back to the backend label via the useEnums() hook.
+const KITCHEN_LABELS: Record<string, string> = {
   confirmed: 'New',
-  preparing: 'Preparing',
   ready_for_pickup: 'Ready',
-  assigned_to_rider: 'Rider assigned',
-  picked_up: 'Picked up',
-  out_for_delivery: 'Out for delivery',
 };
 
 export function OperatorDashboard() {
@@ -20,6 +19,8 @@ export function OperatorDashboard() {
   const accept = useAcceptOrder();
   const ready = useReadyOrder();
   const reject = useRejectOrder();
+  const { orderStatusLabel } = useEnums();
+  const statusLabel = (s: string) => KITCHEN_LABELS[s] ?? orderStatusLabel(s);
 
   return (
     <div className="stack">
@@ -43,7 +44,7 @@ export function OperatorDashboard() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="price">{money(o.order_total)}</div>
-                <span className="badge badge-active">{STATUS_LABELS[o.status] ?? o.status}</span>
+                <span className="badge badge-active">{statusLabel(o.status)}</span>
               </div>
             </div>
 

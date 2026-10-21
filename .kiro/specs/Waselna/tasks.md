@@ -321,7 +321,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - Migrations for `orders`, `order_lines`, `order_line_modifiers`, `order_timeline_entries` (append-only), `idempotency_keys` with the documented unique constraints, checks, and indexes
     - _Requirements: 8.1, 8.2, 8.3, 40.1, 40.2, 40.3, 40.4, 40.5, 40.6_
 
-  - [~] 13.2 Implement the framework-free Order_State_Machine
+  - [x] 13.2 Implement the framework-free Order_State_Machine
     - The 18 permitted edges as data over the 12 Order_States with the per-edge permitted-actor sets, edge membership evaluated before actor permission, `invalid_state_transition` / `forbidden` / `cancellation_window_closed` outcomes
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.7, 10.8, 10.9, 10.10_
 
@@ -333,7 +333,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 33: Transition refusals evaluate membership before actor permission**
     - **Validates: Requirements 10.3, 10.4, 10.5, 10.9, 10.10, 33.4, 33.5, 35.10**
 
-  - [~] 13.5 Implement the transition service with timeline and post-commit events
+  - [x] 13.5 Implement the transition service with timeline and post-commit events
     - Row-lock, machine assertion, state update, one appended Order_Timeline entry with actor identity and UTC timestamp, and one `order.state_changed` domain event collected in the transaction and dispatched after commit
     - _Requirements: 10.6, 10.11, 10.15, 40.8, 40.9_
 
@@ -370,7 +370,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 21: Availability gates new selections and never alters existing records**
     - **Validates: Requirements 6.4, 8.5, 11.5, 34.5, 34.8, 34.9**
 
-  - [~] 14.8 Implement the Order read endpoints with Role scoping
+  - [x] 14.8 Implement the Order read endpoints with Role scoping
     - Single-Order and list reads scoped per Role with the non-disclosing `order_not_found` helper, and the Customer, Operator, and Staff active-order lists
     - _Requirements: 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 12.7, 12.8, 19.1, 19.2_
 
@@ -382,7 +382,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - Migrations for `payment_intents`, `payment_events`, `refunds` with the documented unique and partial-unique constraints; the gateway abstraction bound at boot with the deterministic in-process simulator making no outbound call
     - _Requirements: 36.1, 36.2, 36.3, 36.4, 36.5, 36.8, 9.13, 23.8_
 
-  - [~] 16.2 Implement the Payment_Intent lifecycle reacting to order.state_changed
+  - [x] 16.2 Implement the Payment_Intent lifecycle reacting to order.state_changed
     - Exactly one Payment_Intent per Order for the Order_Total, authorization in a queued Job with 3 retries at 1/2/4 seconds, capture once, decline and exhausted-retry handling, refund and void paths ending at `refunded`, timeline records, gateway Idempotency_Key derived from the Order identifier alone
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.8, 9.9, 9.10, 9.11, 9.12, 9.14_
 
@@ -407,7 +407,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - _Requirements: 36.2, 36.5_
 
 - [ ] 17. Restaurant order handling
-  - [~] 17.1 Implement the accept, reject, preparing, and ready actions
+  - [x] 17.1 Implement the accept, reject, preparing, and ready actions
     - Preparation time in 1–240 whole minutes, rejection reason drawn from the Platform_Configuration list, transitions driven through the Order_State_Machine
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
 
@@ -415,7 +415,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 36: Restaurant order handling records exactly what was submitted**
     - **Validates: Requirements 12.2, 12.3, 12.4, 12.5**
 
-  - [~] 17.3 Implement the Operator and Staff active-order queues
+  - [x] 17.3 Implement the Operator and Staff active-order queues
     - Scoped, creation-time-ascending lists excluding other branches from results and totals
     - _Requirements: 12.7, 12.8_
 
@@ -428,7 +428,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - Migrations for `delivery_jobs` and `delivery_job_offers` with the partial unique active-job index; job creation on Order acceptance carrying Pickup_Location and Drop_Off_Location
     - _Requirements: 13.1, 40.2, 40.3, 40.6_
 
-  - [~] 18.2 Implement the Available_Courier predicate and the self-rescheduling offer cycle
+  - [x] 18.2 Implement the Available_Courier predicate and the self-rescheduling offer cycle
     - One predicate object evaluated identically in the SQL candidate query and the in-memory classifier; at most 10 nearest Couriers in the current Offer_Radius; widening once to the maximum at 120 seconds; 30-second re-evaluation when empty; escalation at 600 seconds withdrawing every offer and marking the Administrator_Queue
     - _Requirements: 13.2, 13.5, 13.6, 13.8, 13.9, 13.10_
 
@@ -440,7 +440,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 37: Time-driven reminder and escalation schedules are exact and bounded**
     - **Validates: Requirements 12.6, 13.5, 13.6, 14.8**
 
-  - [~] 18.5 Implement offer acceptance, withdrawal, and the one-active-job invariant
+  - [x] 18.5 Implement offer acceptance, withdrawal, and the one-active-job invariant
     - Conditional `UPDATE ... WHERE assigned_courier_id IS NULL` resolving one winner, `job_already_assigned` for losers, sibling offers withdrawn within 2 seconds, `courier_has_active_job` guard
     - _Requirements: 13.3, 13.4, 13.7, 13.11_
 
@@ -448,7 +448,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 39: Delivery_Job assignment has exactly one winner and one active job per Courier**
     - **Validates: Requirements 13.1, 13.3, 13.4, 13.7, 13.11**
 
-  - [~] 18.7 Implement Courier execution actions and Delivery_Job closure
+  - [x] 18.7 Implement Courier execution actions and Delivery_Job closure
     - Pickup, start, delivered, and failure reporting guarded by assignment with `delivery_not_found`, outcomes `delivered` / `failed` / `cancelled`, failure escalation with an Administrator Notification within 60 seconds
     - _Requirements: 14.1, 14.2, 14.6, 14.8, 35.9, 35.10_
 
@@ -456,7 +456,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 40: Courier execution actions are guarded and close the Delivery_Job correctly**
     - **Validates: Requirements 14.1, 14.2, 14.6, 35.9, 35.10**
 
-  - [~] 18.9 Wire assignment, readiness, and withdrawal to Order_State and Rider_Status
+  - [x] 18.9 Wire assignment, readiness, and withdrawal to Order_State and Rider_Status
     - Assignment at `ready_for_pickup` transitioning to `assigned_to_rider`, deferred transition on reaching `ready_for_pickup`, withdrawal returning to `ready_for_pickup`, Rider_Status following assignment and closure
     - _Requirements: 10.12, 10.13, 10.14, 35.3, 35.8_
 
@@ -469,7 +469,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - `courier_profiles` migration with Rider_Status and vehicle-type checks, encrypted phone column, profile read and partial update
     - _Requirements: 58.1, 58.2, 58.3, 58.5_
 
-  - [~] 19.2 Implement RiderStatusService with Tracking_Session coupling
+  - [x] 19.2 Implement RiderStatusService with Tracking_Session coupling
     - `goOnline` requiring vehicle type and phone with `courier_profile_incomplete`, `goOffline` rejected with `active_delivery_in_progress` while a job is active, session open and close, suspension forcing `offline` only when no active job exists
     - _Requirements: 35.1, 35.2, 35.4, 35.5, 58.4, 58.6_
 
@@ -477,7 +477,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 44: Rider_Status transitions respect profile completeness and active work**
     - **Validates: Requirements 35.1, 35.2, 35.4, 35.5, 58.1, 58.4, 58.6**
 
-  - [~] 19.4 Implement RiderWorkService and CourierDirectory
+  - [x] 19.4 Implement RiderWorkService and CourierDirectory
     - Assigned job list, paginated history, date-range summary, and the candidate query consumed by Dispatch
     - _Requirements: 35.6, 35.7, 35.11_
 
@@ -518,7 +518,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - `notifications` migration with category, channel, and delivery-status checks; composer mapping each domain event to the Notification set Requirement 16 assigns and to no other
     - _Requirements: 16.1, 16.7_
 
-  - [~] 22.2 Implement NotificationService with preference gating and queued delivery
+  - [x] 22.2 Implement NotificationService with preference gating and queued delivery
     - Preference gate before enqueue, one Job per channel with 3 retries at 1/2/4 seconds and a recorded final outcome, email through the configured mail transport, in-app persistence with recipient-scoped listing and `markRead`
     - _Requirements: 16.2, 16.3, 16.4, 16.5, 16.6, 16.8, 16.9, 16.10, 16.11_
 
@@ -543,7 +543,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 50: Reviews are once-per-delivered-own-Order and ratings aggregate exactly**
     - **Validates: Requirements 17.1, 17.2, 17.3, 17.4, 17.6, 17.8**
 
-  - [~] 23.3 Implement RatingReader and the Catalog projection refresh
+  - [x] 23.3 Implement RatingReader and the Catalog projection refresh
     - `review.aggregate_updated` consumed by Catalog to refresh the projection column and invalidate affected search read models; absent rating reported as null
     - _Requirements: 17.4, 17.6, 17.8_
 
@@ -556,7 +556,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 53: Every Administrator write produces exactly one complete Audit_Entry**
     - **Validates: Requirements 18.6, 37.9, 59.9**
 
-  - [~] 24.3 Implement the Platform_Configuration administration surface
+  - [x] 24.3 Implement the Platform_Configuration administration surface
     - Validated updates to service-fee percentage and bounds, Offer_Radii, reason lists, and Notification defaults taking effect for every request after commit
     - _Requirements: 37.9, 37.10_
 
@@ -564,7 +564,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 56: Platform_Configuration applies to every request after commit**
     - **Validates: Requirements 37.9, 37.10**
 
-  - [~] 24.5 Implement the Administrator list surfaces through Module_Boundary interfaces
+  - [x] 24.5 Implement the Administrator list surfaces through Module_Boundary interfaces
     - User, Restaurant, Courier, Delivery_Job, Order, and Review lists with the documented conjunctive filters and projections, plus the Administrator_Queue view, all delegating to owning modules
     - _Requirements: 18.5, 37.1, 37.2, 37.3, 37.4, 37.5, 37.6, 37.11_
 
@@ -687,11 +687,11 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - _Requirements: 40.1, 40.2, 40.3, 40.4, 40.5, 40.6, 40.7, 40.11_
 
 - [ ] 29. Web_Client foundation
-  - [~] 29.1 Scaffold the Web_Client application and module structure
+  - [x] 29.1 Scaffold the Web_Client application and module structure
     - Vite + React + TypeScript app with `src/features/*`, `src/components`, generated request/response types from the OpenAPI_Document, and ESLint import rules forbidding feature-to-feature imports and non-`API_Client` HTTP access
     - _Requirements: 29.1, 29.2, 29.3, 41.1, 41.9, 41.10_
 
-  - [~] 29.2 Implement the API_Client
+  - [x] 29.2 Implement the API_Client
     - Base URL, bearer Access_Token, Correlation_Identifier header, API_Error decoding, and the single refresh-and-retry interceptor clearing credentials and routing to sign-in on failure
     - _Requirements: 41.5, 29.9, 29.10_
 
@@ -699,7 +699,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 79: Token refresh is attempted exactly once per failed request**
     - **Validates: Requirements 29.9, 29.10**
 
-  - [~] 29.4 Implement the Query_Client, Feature_Hook pattern, and Redux_Store
+  - [x] 29.4 Implement the Query_Client, Feature_Hook pattern, and Redux_Store
     - TanStack Query instance owning all Server_State, one Feature_Hook per feature as the sole Query_Client caller, Redux Toolkit slices holding Client_State only, and mutation-driven cache invalidation
     - _Requirements: 41.2, 41.3, 41.4, 41.6, 41.7_
 
@@ -711,7 +711,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 80: Successful mutations invalidate exactly the affected cache keys**
     - **Validates: Requirements 41.7**
 
-  - [~] 29.7 Implement form validation and API_Error field rendering
+  - [x] 29.7 Implement form validation and API_Error field rendering
     - Shared form components mapping per-field validation details onto their inputs and rendering the error message
     - _Requirements: 29.4_
 
@@ -728,7 +728,7 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - **Property 81: WebSocket reconnection backs off exponentially to a 30-second cap**
     - **Validates: Requirements 15.5**
 
-  - [~] 30.3 Implement the active Order tracking screen
+  - [x] 30.3 Implement the active Order tracking screen
     - Current Order_State display and the Courier_Location map shown exactly in `assigned_to_rider`, `picked_up`, and `out_for_delivery` when a location exists
     - _Requirements: 29.6_
 
@@ -741,19 +741,19 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - _Requirements: 15.6, 42.7_
 
 - [ ] 31. Web_Client feature surfaces
-  - [~] 31.1 Implement the Customer surfaces
+  - [x] 31.1 Implement the Customer surfaces
     - Discovery and search, Menu browsing, Cart, checkout with address selection and Idempotency_Key, Order history, reorder, and Review submission
     - _Requirements: 29.5, 29.7, 3.1, 4.1, 6.1, 8.1, 19.1, 19.3, 17.1_
 
-  - [~] 31.2 Implement the Restaurant_Operator and Restaurant_Staff surfaces
+  - [x] 31.2 Implement the Restaurant_Operator and Restaurant_Staff surfaces
     - Incoming order queue with accept/reject/prepare/ready actions, Menu and availability management, hours, branches, and Restaurant_Staff accounts
     - _Requirements: 12.1, 12.2, 12.7, 12.8, 11.1, 11.5, 11.7, 32.1, 33.1_
 
-  - [~] 31.3 Implement the Courier surfaces
+  - [x] 31.3 Implement the Courier surfaces
     - Rider_Status control, offered jobs, accept, pickup, start, delivered, failure reporting, location reporting, and history
     - _Requirements: 35.1, 35.6, 35.7, 13.3, 14.1, 14.2, 14.3_
 
-  - [~] 31.4 Implement the Administrator surfaces
+  - [x] 31.4 Implement the Administrator surfaces
     - User, Restaurant, Courier, Delivery_Job and Order lists, Administrator_Queue, Review hiding, Platform_Configuration editing, and Reports
     - _Requirements: 18.1, 18.5, 18.7, 37.1, 37.3, 37.4, 37.5, 37.6, 37.9_
 
@@ -766,11 +766,11 @@ Property tests use Pest + `giorgiosironi/eris` on the backend and Vitest + `fast
     - Deptrac layers for the 14 modules and the layer chain, custom PHPStan rules for Payment_Provider containment and cross-module model references, ESLint import rules for the Web_Client call chain, each paired with a fixture proving the rule fails on a violation
     - _Requirements: 22.4, 22.8, 36.6, 36.7, 38.8, 41.8_
 
-  - [~] 32.2 Implement the Build_Pipeline workflow
+  - [x] 32.2 Implement the Build_Pipeline workflow
     - Static analysis, the five separately selectable suites, coverage reporting with uncovered lines, suite and pipeline timing guards, OpenAPI parity, environment-variable parity, dependency vulnerability and committed-secret scans, and commit-message conventions
     - _Requirements: 23.5, 23.6, 23.7, 23.9, 23.11, 25.1, 25.2, 25.3, 25.4, 25.5, 25.6, 25.7, 25.8, 28.8, 44.6, 44.7, 47.9, 47.10, 48.6, 48.7, 48.8, 56.4, 56.6_
 
-  - [~] 32.3 Implement the Deploy_Pipeline workflow
+  - [x] 32.3 Implement the Deploy_Pipeline workflow
     - OIDC_Trust credential exchange, image build and push by commit SHA, migration step, ECS service update, steady-state wait, Smoke_Test_Suite invocation, and previous-image restoration on failure
     - _Requirements: 25.9, 47.1, 47.2, 47.3, 47.5, 47.6, 47.7, 47.8_
 
