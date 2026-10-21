@@ -1,0 +1,110 @@
+name: Deploy
+
+# Full automated deployment to AWS ECS Fargate. Runs on a push to main (after CI
+# passes) or on manual dispatch. Steps:
+#   1. Authenticate to AWS via OIDC (no stored access keys).
+#   2. Build + push the backend and frontend images to ECR, tagged with the commit SHA.
+#   3. Run database migrations as a one-off ECS task.
+#   4. Roll the ECS services onto the new task definitions.
+#   5. Smoke-test the public health endpoint.
+#
+# ---------------------------------------------------------------------------
+# REQUIRED GitHub repo configuration (Settings -> Secrets and variables -> Actions):
+#   Variables:
+#     AWS_REGION              e.g. us-east-1              # TODO(you)
+#     AWS_ACCOUNT_ID          your 12-digit account id    # TODO(you)
+#     APP_PUBLIC_URL          the ALB DNS or your domain  # TODO(you) (from `terraform output app_url`)
+#   Secrets:
+#     AWS_DEPLOY_ROLE_ARN     arn of the OIDC deploy role # TODO(you) (see docs/deployment/CICD.md)
+# ---------------------------------------------------------------------------
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # required for AWS OIDC
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_BACKEND: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/waselna/backend
+  ECR_FRONTEND: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/waselna/frontend
+  CLUSTER: waselna-production-cluster
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Image tag
+        id: tag
+        run: echo "sha=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      # ---- Build + push backend ------------------------------------------
+      - name: Build and push backend image
+        run: |
+          docker build -f docker/backend-prod/Dockerfile \
+            -t "$ECR_BACKEND:${{ steps.tag.outputs.sha }}" \
+            -t "$ECR_BACKEND:latest" .
+          docker push "$ECR_BACKEND:${{ steps.tag.outputs.sha }}"
+          docker push "$ECR_BACKEND:latest"
+
+      # ---- Build + push frontend (API URL baked at build time) -----------
+      - name: Build and push frontend image
+        run: |
+          docker build -f docker/frontend-prod/Dockerfile \
+            --build-arg VITE_API_BASE_URL="${{ vars.APP_PUBLIC_URL }}/api/v1" \
+            -t "$ECR_FRONTEND:${{ steps.tag.outputs.sha }}" \
+            -t "$ECR_FRONTEND:latest" .
+          docker push "$ECR_FRONTEND:${{ steps.tag.outputs.sha }}"
+          docker push "$ECR_FRONTEND:latest"
+
+      # ---- Database migrations as a one-off ECS task ---------------------
+      - name: Run database migrations
+        run: |
+          bash infra/scripts/run-migrations.sh \
+            "$CLUSTER" \
+            "waselna-production-backend" \
+            "$ECR_BACKEND:${{ steps.tag.outputs.sha }}"
+
+      # ---- Roll the ECS services onto the new image ----------------------
+      - name: Deploy backend service
+        run: |
+          bash infra/scripts/deploy-service.sh "$CLUSTER" "waselna-production-backend" "backend"  "$ECR_BACKEND:${{ steps.tag.outputs.sha }}"
+      - name: Deploy worker service
+        run: |
+          bash infra/scripts/deploy-service.sh "$CLUSTER" "waselna-production-worker"  "worker"   "$ECR_BACKEND:${{ steps.tag.outputs.sha }}"
+      - name: Deploy reverb service
+        run: |
+          bash infra/scripts/deploy-service.sh "$CLUSTER" "waselna-production-reverb"  "reverb"   "$ECR_BACKEND:${{ steps.tag.outputs.sha }}"
+      - name: Deploy frontend service
+        run: |
+          bash infra/scripts/deploy-service.sh "$CLUSTER" "waselna-production-frontend" "frontend" "$ECR_FRONTEND:${{ steps.tag.outputs.sha }}"
+
+      - name: Wait for services to stabilise
+        run: |
+          aws ecs wait services-stable --cluster "$CLUSTER" \
+            --services waselna-production-backend waselna-production-frontend waselna-production-reverb waselna-production-worker
+
+      # ---- Smoke test ----------------------------------------------------
+      - name: Smoke test health endpoint
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.APP_PUBLIC_URL }}/api/v1/health")
+          echo "health -> $code"
+          test "$code" = "200"

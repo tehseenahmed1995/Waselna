@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Catalog\Services;
 
+use App\Modules\Catalog\Models\MenuCategory;
+use App\Modules\Catalog\Models\MenuItem;
 use App\Modules\Catalog\Models\Restaurant;
 use App\Shared\Domain\Exceptions\AuthorizationException;
 
@@ -20,13 +22,15 @@ final class RestaurantDiscoveryService
      */
     public function search(): array
     {
-        return Restaurant::query()
+        $restaurants = Restaurant::query()
             ->where('status', 'published')
             ->with('cuisineTags')
             ->orderBy('name')
-            ->get()
-            ->map(fn (Restaurant $r): array => $this->summary($r))
-            ->all();
+            ->get();
+
+        return array_values(
+            $restaurants->map(fn (Restaurant $r): array => $this->summary($r))->all(),
+        );
     }
 
     /**
@@ -46,10 +50,10 @@ final class RestaurantDiscoveryService
 
         return [
             ...$this->summary($restaurant),
-            'menu' => $restaurant->categories->map(fn ($category): array => [
+            'menu' => $restaurant->categories->map(fn (MenuCategory $category): array => [
                 'id' => $category->id,
                 'name' => $category->name,
-                'items' => $category->items->map(fn ($item): array => [
+                'items' => $category->items->map(fn (MenuItem $item): array => [
                     'id' => $item->id,
                     'name' => $item->name,
                     'description' => $item->description,

@@ -62,13 +62,17 @@ return new class extends Migration
             $table->ulid('id')->primary();
             $table->foreignUlid('user_id')->constrained('users')->cascadeOnDelete();
             $table->string('new_email');
+            $table->string('new_email_lower');
             $table->string('token_hash');
             $table->timestampTz('expires_at');
+            $table->timestampTz('used_at')->nullable();
             $table->timestampTz('created_at')->nullable();
 
-            // Only one pending email change per user
-            $table->unique('user_id');
-            $table->index('token_hash');
+            // The token itself is the lookup key on confirmation (design: UNIQUE(token_hash)).
+            $table->unique('token_hash');
+            // Finding a Customer's live, unused tokens to invalidate on reissue
+            // and to confirm against (design: index (user_id, used_at)).
+            $table->index(['user_id', 'used_at']);
         });
     }
 

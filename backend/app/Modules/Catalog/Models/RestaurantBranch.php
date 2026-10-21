@@ -6,6 +6,7 @@ namespace App\Modules\Catalog\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $address
  * @property ?float $latitude
  * @property ?float $longitude
+ * @property ?string $time_zone
  * @property bool $is_active
  */
 final class RestaurantBranch extends Model
@@ -33,4 +35,12 @@ final class RestaurantBranch extends Model
         'longitude' => 'float',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * @return HasMany<BranchHour, $this>
+     */
+    public function branchHours(): HasMany
+    {
+        return $this->hasMany(BranchHour::class, 'restaurant_branch_id');
+    }
 }

@@ -30,8 +30,8 @@ below passes `--env-file ./backend/.env` (Requirement 24.6).
 | Migrate (Requirement 24.7) | `docker compose --env-file ./backend/.env exec backend php artisan migrate` |
 | Migrate and seed demonstration data (Requirement 24.7) | `docker compose --env-file ./backend/.env exec backend php artisan migrate --seed` |
 | Seed only | `docker compose --env-file ./backend/.env exec backend php artisan db:seed` |
-| Full test suite in the container (Requirement 24.8) | `docker compose --env-file ./backend/.env exec backend php artisan test` |
-| One suite | `docker compose --env-file ./backend/.env exec backend php artisan test --testsuite=Unit` |
+| Full test suite in the container (Requirement 24.8) | `docker compose --env-file ./backend/.env exec -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: backend php artisan test` |
+| One suite | `docker compose --env-file ./backend/.env exec -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: backend php artisan test --testsuite=Unit` |
 | Stop, keeping data | `docker compose --env-file ./backend/.env down` |
 | Stop and discard volumes | `docker compose --env-file ./backend/.env down -v` |
 

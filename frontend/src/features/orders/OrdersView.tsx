@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useOrder, useOrders, usePay } from './useOrders';
+import { useSubmitReview } from './useReview';
 import { money } from '../cart/useCart';
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -30,12 +32,16 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
   const orders = useOrders();
   const focused = useOrder(focusOrderId);
   const pay = usePay();
+  const review = useSubmitReview();
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
 
   if (focusOrderId && focused.data) {
     const o = focused.data;
     const payment = o.payment;
     const awaitingPayment = o.status === 'pending_payment';
     const paid = payment?.status === 'captured';
+    const delivered = o.status === 'delivered';
 
     return (
       <div className="stack">
@@ -102,6 +108,54 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
             )}
           </div>
         </div>
+
+        {delivered && (
+          <div className="card">
+            <div className="card-body">
+              <h3>Rate your order</h3>
+              {review.isSuccess ? (
+                <div className="alert alert-success mt-2">Thanks for your review!</div>
+              ) : (
+                <div className="mt-2">
+                  <div className="qty" style={{ marginBottom: 10 }}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setRating(n)}
+                        style={{
+                          background: n <= rating ? 'var(--primary)' : '#fff',
+                          color: n <= rating ? '#fff' : 'var(--muted)',
+                          width: 34,
+                          height: 34,
+                        }}
+                        aria-label={`${n} star`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                  <div className="field">
+                    <textarea
+                      className="input"
+                      rows={2}
+                      placeholder="Optional comment"
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    disabled={review.isPending}
+                    onClick={() => review.mutate({ orderId: o.id, rating, comment: comment || undefined })}
+                  >
+                    {review.isPending ? 'Submitting…' : 'Submit review'}
+                  </button>
+                  {review.isError && <div className="alert alert-error mt-2">Could not submit review.</div>}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {o.timeline && (
           <div className="card">

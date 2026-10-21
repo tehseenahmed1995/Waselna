@@ -14,11 +14,26 @@ export class ApiRequestError extends Error {
 
 const ACCESS_KEY = 'waselna_access_token';
 
+// A small set of subscribers notified whenever the access token changes, so
+// React components (via useAccessToken) re-render immediately on login/logout
+// instead of waiting for a manual page refresh. localStorage on its own is not
+// reactive.
+type TokenListener = (token: string | null) => void;
+const tokenListeners = new Set<TokenListener>();
+
+export function subscribeToken(listener: TokenListener): () => void {
+  tokenListeners.add(listener);
+  return () => tokenListeners.delete(listener);
+}
+
 export function setAccessToken(token: string | null): void {
   if (token === null) {
     localStorage.removeItem(ACCESS_KEY);
   } else {
     localStorage.setItem(ACCESS_KEY, token);
+  }
+  for (const listener of tokenListeners) {
+    listener(token);
   }
 }
 

@@ -4,40 +4,48 @@ declare(strict_types=1);
 
 namespace App\Modules\Admin\Providers;
 
+use App\Modules\Admin\Boundary\PlatformConfigurationReader;
+use App\Modules\Admin\Contracts\Services\PlatformConfigurationService;
+use App\Modules\Admin\Http\Controllers\AdminController;
+use App\Modules\Admin\Http\Controllers\PlatformConfigurationController;
+use App\Modules\Admin\Services\PlatformConfigurationServiceImplementation;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Registers the container bindings owned by the Admin module (Platform_Configuration and administrative operations).
+ * Registers the container bindings owned by the Admin module (Administrator read
+ * surfaces, Platform_Configuration, and audit).
  */
 final class AdminServiceProvider extends ServiceProvider
 {
-    /**
-     * Service_Interface to Service_Implementation bindings owned by this module.
-     *
-     * @var array<class-string, class-string>
-     */
-    public array $bindings = [];
-
-    /**
-     * Module_Boundary interfaces and external-dependency adapters owned by this module.
-     *
-     * @var array<class-string, class-string>
-     */
-    public array $singletons = [];
-
-    /**
-     * Registers bindings that need more than a class-string mapping.
-     */
     public function register(): void
     {
-        //
+        // PlatformConfigurationServiceImplementation serves both the writable
+        // PlatformConfigurationService Service_Interface (the Administrator
+        // surface) and the read-only PlatformConfigurationReader Module_Boundary
+        // that Pricing, Dispatch, Account, and Restaurant order handling consume
+        // (Requirements 37.9, 37.10). Bind the concrete once as a singleton and
+        // alias both seams to it so every reader and the writer share one
+        // instance and therefore one view of the stored row.
+        $this->app->singleton(PlatformConfigurationServiceImplementation::class);
+        $this->app->alias(PlatformConfigurationServiceImplementation::class, PlatformConfigurationService::class);
+        $this->app->alias(PlatformConfigurationServiceImplementation::class, PlatformConfigurationReader::class);
     }
 
-    /**
-     * Wires module routes, event subscriptions, and policies once every provider is registered.
-     */
     public function boot(): void
     {
-        //
+        Route::middleware(['api', 'auth.bearer:required', 'role:administrator'])
+            ->prefix('api/v1/admin')
+            ->group(function (): void {
+                Route::get('summary', [AdminController::class, 'summary']);
+                Route::get('orders', [AdminController::class, 'orders']);
+                Route::get('restaurants', [AdminController::class, 'restaurants']);
+                Route::get('couriers', [AdminController::class, 'couriers']);
+                Route::get('deliveries', [AdminController::class, 'deliveries']);
+
+                // Platform_Configuration read and write (Requirements 37.9, 37.10).
+                Route::get('configuration', [PlatformConfigurationController::class, 'show']);
+                Route::put('configuration', [PlatformConfigurationController::class, 'update']);
+            });
     }
 }

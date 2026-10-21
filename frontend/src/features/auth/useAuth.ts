@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiFetch, getAccessToken, setAccessToken } from '../../api/client';
+import { apiFetch, getAccessToken, setAccessToken, subscribeToken } from '../../api/client';
 
 export interface AuthUser {
   id: string;
@@ -15,11 +16,21 @@ interface TokenPair {
   user: AuthUser;
 }
 
+// Reactive access-token hook: re-renders the component whenever the token is
+// set (login) or cleared (logout), so the app routes to the right screen
+// immediately without a manual page refresh.
+export function useAccessToken(): string | null {
+  const [token, setToken] = useState<string | null>(getAccessToken());
+  useEffect(() => subscribeToken(setToken), []);
+  return token;
+}
+
 export function useCurrentUser() {
+  const token = useAccessToken();
   return useQuery({
     queryKey: ['me'],
     queryFn: () => apiFetch<{ id: string; role: string; account_status: string }>('/auth/me'),
-    enabled: getAccessToken() !== null,
+    enabled: token !== null,
     retry: false,
   });
 }
@@ -29,9 +40,12 @@ export function useLogin() {
   return useMutation({
     mutationFn: (input: { email: string; password: string }) =>
       apiFetch<TokenPair>('/auth/login', { method: 'POST', body: input, auth: false }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // Setting the token notifies useAccessToken subscribers (re-render) and
+      // enables the `me` query; refetch it so the role-based screen appears at
+      // once.
       setAccessToken(data.access_token);
-      qc.invalidateQueries({ queryKey: ['me'] });
+      await qc.invalidateQueries({ queryKey: ['me'] });
     },
   });
 }

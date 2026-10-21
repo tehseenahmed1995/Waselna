@@ -4,40 +4,29 @@ declare(strict_types=1);
 
 namespace App\Modules\Dispatch\Providers;
 
+use App\Modules\Dispatch\Http\Controllers\DispatchController;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Registers the container bindings owned by the Dispatch module (Delivery_Jobs, Courier offers, and assignment).
+ * Registers the container bindings owned by the Dispatch module (Delivery_Jobs and Courier offers).
  */
 final class DispatchServiceProvider extends ServiceProvider
 {
-    /**
-     * Service_Interface to Service_Implementation bindings owned by this module.
-     *
-     * @var array<class-string, class-string>
-     */
-    public array $bindings = [];
-
-    /**
-     * Module_Boundary interfaces and external-dependency adapters owned by this module.
-     *
-     * @var array<class-string, class-string>
-     */
-    public array $singletons = [];
-
-    /**
-     * Registers bindings that need more than a class-string mapping.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Wires module routes, event subscriptions, and policies once every provider is registered.
-     */
     public function boot(): void
     {
-        //
+        Route::middleware(['api', 'auth.bearer:required'])->prefix('api/v1')->group(function (): void {
+            Route::get('dispatch/available', [DispatchController::class, 'available']);
+            Route::get('dispatch/active', [DispatchController::class, 'active']);
+            Route::post('dispatch/jobs/{job}/accept', [DispatchController::class, 'accept']);
+            Route::post('dispatch/jobs/{job}/pickup', [DispatchController::class, 'pickup']);
+            Route::post('dispatch/jobs/{job}/transit', [DispatchController::class, 'transit']);
+            Route::post('dispatch/jobs/{job}/deliver', [DispatchController::class, 'deliver']);
+        });
     }
 }

@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Auth\Providers;
 
+use App\Modules\Account\Boundary\AccountProvisioning;
+use App\Modules\Auth\Boundary\CredentialDirectory;
 use App\Modules\Auth\Http\Controllers\AuthController;
+use App\Modules\Auth\Services\AuthenticationService;
 use App\Shared\Http\Middleware\AuthenticateBearer;
+use App\Shared\Support\Clock;
+use App\Shared\Support\IdGenerator;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -33,7 +38,24 @@ final class AuthServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // AuthenticationService needs the Account provisioning boundary only
+        // inside register(); injecting it eagerly would form a container cycle
+        // (AuthenticationService is CredentialDirectory, which
+        // ProfileServiceImplementation (the AccountProvisioning binding)
+        // depends on). Construct it as a shared instance with the provisioning
+        // edge deferred behind a Closure so neither constructor resolves the
+        // other.
+        $this->app->singleton(AuthenticationService::class, function ($app): AuthenticationService {
+            return new AuthenticationService(
+                $app->make(Clock::class),
+                $app->make(IdGenerator::class),
+                static fn (): AccountProvisioning => $app->make(AccountProvisioning::class),
+            );
+        });
+
+        // The Account module's password-change flow reaches the password hash
+        // and Refresh_Tokens through this boundary (Requirements 31.5, 31.6).
+        $this->app->bind(CredentialDirectory::class, AuthenticationService::class);
     }
 
     /**

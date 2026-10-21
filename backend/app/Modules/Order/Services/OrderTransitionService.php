@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Order\Services;
 
+use App\Modules\Notification\Services\NotificationService;
 use App\Modules\Order\Domain\OrderStateMachine;
 use App\Modules\Order\Models\Order;
 use App\Modules\Order\Models\OrderTimelineEntry;
@@ -28,6 +29,7 @@ final class OrderTransitionService
     public function __construct(
         private readonly OrderStateMachine $machine,
         private readonly Clock $clock,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function transition(
@@ -37,7 +39,7 @@ final class OrderTransitionService
         ?string $actorId,
         ?string $notes = null,
     ): Order {
-        return DB::transaction(function () use ($orderId, $toState, $actorRole, $actorId, $notes): Order {
+        $order = DB::transaction(function () use ($orderId, $toState, $actorRole, $actorId, $notes): Order {
             /** @var Order|null $order */
             $order = Order::query()->lockForUpdate()->find($orderId);
 
@@ -79,5 +81,33 @@ final class OrderTransitionService
 
             return $order;
         });
+
+        // Notify the customer of the new state, after the transaction commits.
+        $this->notifications->record(
+            $order->customer_id,
+            'order.'.$toState,
+            'Order '.$order->order_number,
+            $this->messageFor($toState),
+            ['order_id' => $order->id, 'status' => $toState],
+        );
+
+        return $order;
+    }
+
+    private function messageFor(string $state): string
+    {
+        return match ($state) {
+            OrderStateMachine::CONFIRMED => 'Your order is confirmed.',
+            OrderStateMachine::PREPARING => 'The restaurant is preparing your order.',
+            OrderStateMachine::READY_FOR_PICKUP => 'Your order is ready and waiting for a courier.',
+            OrderStateMachine::ASSIGNED_TO_RIDER => 'A courier has been assigned to your order.',
+            OrderStateMachine::PICKED_UP => 'Your order has been picked up.',
+            OrderStateMachine::OUT_FOR_DELIVERY => 'Your order is on its way.',
+            OrderStateMachine::DELIVERED => 'Your order has been delivered. Enjoy!',
+            OrderStateMachine::REJECTED => 'Your order was rejected by the restaurant.',
+            OrderStateMachine::PAYMENT_FAILED => 'Payment for your order failed.',
+            OrderStateMachine::CANCELLED => 'Your order was cancelled.',
+            default => 'Your order status changed to '.$state.'.',
+        };
     }
 }

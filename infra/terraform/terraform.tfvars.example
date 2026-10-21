@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars and fill in. All have working demo defaults, so an
+# empty file still applies. Replace the TODO(you) values for real production.
+
+aws_region  = "us-east-1"            # TODO(you): your region
+environment = "production"
+project     = "waselna"
+
+# Enable HTTPS by pasting an ACM certificate ARN in your region. Leave blank to
+# serve the demo over plain HTTP on the ALB DNS name.
+# acm_certificate_arn = "arn:aws:acm:us-east-1:REPLACE_ME:certificate/REPLACE_ME"
+# domain_name         = "app.waselna.example.com"
+
+# Sizing (demo defaults are the smallest usable). Scale up for production.
+# db_instance_class = "db.t4g.small"
+# redis_node_type   = "cache.t4g.small"
+# backend_desired_count = 2

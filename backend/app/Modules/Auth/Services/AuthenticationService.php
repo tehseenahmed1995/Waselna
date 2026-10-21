@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Auth\Services;
 
+use App\Modules\Account\Boundary\AccountProvisioning;
+use App\Modules\Auth\Boundary\CredentialDirectory;
 use App\Modules\Auth\Domain\ActorContext;
+use App\Modules\Auth\Domain\ChangePasswordCommand;
 use App\Modules\Auth\Models\AccessToken;
 use App\Modules\Auth\Models\RefreshToken;
 use App\Modules\Auth\Models\User;
@@ -20,8 +23,12 @@ use Illuminate\Support\Str;
 /**
  * Credentials, opaque database-backed tokens, and Role resolution (Requirement 1).
  */
-final class AuthenticationService
+final class AuthenticationService implements CredentialDirectory
 {
+    private const PASSWORD_MIN = 12;
+
+    private const PASSWORD_MAX = 128;
+
     private const ACCESS_TTL_MINUTES = 60;
 
     private const REFRESH_TTL_DAYS = 30;
@@ -30,9 +37,19 @@ final class AuthenticationService
 
     private const LOCKOUT_SECONDS = 900;
 
+    /**
+     * @param  \Closure(): AccountProvisioning  $accountProvisioning  resolved lazily
+     *                                                                inside {@see self::register()} only. Injecting the Account
+     *                                                                provisioning boundary eagerly would form a container cycle -
+     *                                                                AuthenticationService is bound to CredentialDirectory, which
+     *                                                                ProfileServiceImplementation (the AccountProvisioning binding)
+     *                                                                depends on - so the edge is deferred behind a Closure and the two
+     *                                                                services are only ever wired when registration actually runs.
+     */
     public function __construct(
         private readonly Clock $clock,
         private readonly IdGenerator $ids,
+        private readonly \Closure $accountProvisioning,
     ) {}
 
     /**
@@ -46,16 +63,31 @@ final class AuthenticationService
             throw ValidationException::because('email_already_registered', 'That email address is already registered.');
         }
 
-        $user = new User([
-            'id' => $this->ids->ulid(),
-            'email' => $email,
-            'email_lower' => $emailLower,
-            'password_hash' => Hash::make($password),
-            'display_name' => $displayName,
-            'role' => 'customer',
-            'account_status' => 'active',
-        ]);
-        $user->save();
+        $passwordHash = Hash::make($password);
+
+        // Registration creates the Auth-owned `users` row and the Account-owned
+        // `user_profiles` row plus the ten `notification_preferences` rows in one
+        // transaction (design "Transaction boundaries"; Requirements 1.1, 16.12).
+        // A failure in either half rolls the whole thing back, so no partial
+        // Platform user or profile is ever left behind. The Account writes go
+        // through the AccountProvisioning Module_Boundary rather than Account's
+        // SQL, keeping the ownership rule of Requirement 22 intact.
+        $user = DB::transaction(function () use ($email, $emailLower, $passwordHash, $displayName): User {
+            $user = new User([
+                'id' => $this->ids->ulid(),
+                'email' => $email,
+                'email_lower' => $emailLower,
+                'password_hash' => $passwordHash,
+                'display_name' => $displayName,
+                'role' => 'customer',
+                'account_status' => 'active',
+            ]);
+            $user->save();
+
+            ($this->accountProvisioning)()->provisionCustomerProfile($user->id);
+
+            return $user;
+        });
 
         return [
             'id' => $user->id,
@@ -142,6 +174,58 @@ final class AuthenticationService
                     ->where('id', $record->refresh_token_id)
                     ->update(['revoked_at' => $now]);
             }
+        });
+    }
+
+    /**
+     * Changes a Customer's password (Requirements 31.5, 31.6).
+     *
+     * An out-of-range new password is rejected with `validation_failed` and a
+     * current password that does not match the stored hash with
+     * `current_password_mismatch`; in both cases the stored hash is left
+     * unchanged and no Refresh_Token is revoked. On success the new hash is
+     * written and every Refresh_Token of the Customer except the one presented
+     * with the request is revoked, so other sessions are signed out while the
+     * caller's session continues.
+     */
+    public function changePassword(ChangePasswordCommand $command): void
+    {
+        $length = mb_strlen($command->newPassword);
+
+        if ($length < self::PASSWORD_MIN || $length > self::PASSWORD_MAX) {
+            throw ValidationException::forField(
+                'new_password',
+                sprintf('between:%d,%d', self::PASSWORD_MIN, self::PASSWORD_MAX),
+                'The new password must be between 12 and 128 characters.',
+            );
+        }
+
+        $user = User::query()->findOrFail($command->userId);
+
+        if (! Hash::check($command->currentPassword, $user->password_hash)) {
+            throw ValidationException::because(
+                'current_password_mismatch',
+                'The current password is incorrect.',
+            );
+        }
+
+        $presentedHash = $command->presentedRefreshToken !== null
+            ? $this->hash($command->presentedRefreshToken)
+            : null;
+
+        DB::transaction(function () use ($user, $command, $presentedHash): void {
+            $user->password_hash = Hash::make($command->newPassword);
+            $user->save();
+
+            $query = RefreshToken::query()
+                ->where('user_id', $user->id)
+                ->whereNull('revoked_at');
+
+            if ($presentedHash !== null) {
+                $query->where('token_hash', '!=', $presentedHash);
+            }
+
+            $query->update(['revoked_at' => $this->clock->nowUtc()]);
         });
     }
 

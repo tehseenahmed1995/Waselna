@@ -4,40 +4,25 @@ declare(strict_types=1);
 
 namespace App\Modules\Notification\Providers;
 
+use App\Modules\Notification\Http\Controllers\NotificationController;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Registers the container bindings owned by the Notification module (email and in_app Notification delivery).
+ * Registers the container bindings owned by the Notification module.
  */
 final class NotificationServiceProvider extends ServiceProvider
 {
-    /**
-     * Service_Interface to Service_Implementation bindings owned by this module.
-     *
-     * @var array<class-string, class-string>
-     */
-    public array $bindings = [];
-
-    /**
-     * Module_Boundary interfaces and external-dependency adapters owned by this module.
-     *
-     * @var array<class-string, class-string>
-     */
-    public array $singletons = [];
-
-    /**
-     * Registers bindings that need more than a class-string mapping.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Wires module routes, event subscriptions, and policies once every provider is registered.
-     */
     public function boot(): void
     {
-        //
+        Route::middleware(['api', 'auth.bearer:required'])->prefix('api/v1')->group(function (): void {
+            Route::get('notifications', [NotificationController::class, 'index']);
+            Route::post('notifications/read', [NotificationController::class, 'markRead']);
+        });
     }
 }

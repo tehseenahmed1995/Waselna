@@ -1,22 +1,26 @@
 import { useState } from 'react';
 import { AuthScreen } from './features/auth/AuthScreen';
-import { useCurrentUser, useLogout } from './features/auth/useAuth';
+import { useAccessToken, useCurrentUser, useLogout } from './features/auth/useAuth';
 import { RestaurantList } from './features/catalog/RestaurantList';
 import { CartPanel } from './features/cart/CartPanel';
 import { OrdersView } from './features/orders/OrdersView';
+import { OperatorDashboard } from './features/restaurant/OperatorDashboard';
+import { CourierDashboard } from './features/courier/CourierDashboard';
+import { AdminDashboard } from './features/admin/AdminDashboard';
+import { NotificationBell } from './features/notifications/NotificationBell';
 import { useCart } from './features/cart/useCart';
-import { getAccessToken } from './api/client';
 
 type Tab = 'browse' | 'orders';
 
 export function App() {
+  const token = useAccessToken();
   const me = useCurrentUser();
   const logout = useLogout();
   const [tab, setTab] = useState<Tab>('browse');
   const [focusOrderId, setFocusOrderId] = useState<string | null>(null);
   const cart = useCart();
 
-  if (getAccessToken() === null || me.isError) {
+  if (token === null || me.isError) {
     return <AuthScreen />;
   }
 
@@ -64,6 +68,7 @@ export function App() {
               </button>
             </>
           )}
+          <NotificationBell />
           <span>{me.data?.role}</span>
           <button className="btn btn-ghost btn-sm" onClick={() => logout.mutate()}>
             Sign out
@@ -72,17 +77,11 @@ export function App() {
       </header>
 
       <main className="container">
-        {!isCustomer && (
-          <div className="card">
-            <div className="card-body">
-              <h1>Welcome</h1>
-              <p className="subtle">
-                You are signed in as <strong>{role}</strong>. The customer ordering experience is available on a
-                customer account (customer@waselna.local). Role-specific dashboards are coming next.
-              </p>
-            </div>
-          </div>
-        )}
+        {(role === 'restaurant_operator' || role === 'restaurant_staff') && <OperatorDashboard />}
+
+        {role === 'courier' && <CourierDashboard />}
+
+        {role === 'administrator' && <AdminDashboard />}
 
         {isCustomer && tab === 'browse' && (
           <div className="page-grid">

@@ -115,18 +115,9 @@ return new class extends Migration
             $table->timestampTz('last_updated_at')->nullable();
         });
 
-        // Zone module
-        Schema::create('delivery_zones', function (Blueprint $table): void {
-            $table->ulid('id')->primary();
-            $table->foreignUlid('restaurant_branch_id')->constrained('restaurant_branches')->cascadeOnDelete();
-            $table->json('geojson'); // GeoJSON MultiPolygon or Polygon
-            $table->geometry('geometry', 'Polygon', 4326)->nullable(); // PostGIS geometry
-            $table->boolean('is_active')->default(true);
-            $table->timestampTz('created_at')->nullable();
-            $table->timestampTz('updated_at')->nullable();
-
-            $table->index('restaurant_branch_id');
-        });
+        // The Zone module tables (delivery_zones, delivery_zone_branch) are owned
+        // by the dedicated 2024_01_08 Zone migration (task 6.5). The PostGIS
+        // extension is enabled above so that migration's geometry column resolves.
 
         // Pricing module
         Schema::create('promotions', function (Blueprint $table): void {
@@ -194,7 +185,6 @@ return new class extends Migration
         Schema::dropIfExists('audit_entries');
         Schema::dropIfExists('promotion_conditions');
         Schema::dropIfExists('promotions');
-        Schema::dropIfExists('delivery_zones');
         Schema::dropIfExists('restaurant_rating_aggregates');
         Schema::dropIfExists('reviews');
         Schema::dropIfExists('notifications');

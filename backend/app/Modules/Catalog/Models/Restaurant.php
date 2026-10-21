@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property ?string $description
  * @property string $status
  * @property string $currency
+ * @property string $time_zone
+ * @property ?\DateTimeInterface $updated_at
  */
 final class Restaurant extends Model
 {
@@ -31,20 +33,46 @@ final class Restaurant extends Model
         'tax_rate_bp' => 'integer',
         'base_delivery_fee' => 'integer',
         'rating' => 'float',
+        'updated_at' => 'datetime',
     ];
 
+    /**
+     * @return HasMany<MenuCategory, $this>
+     */
     public function categories(): HasMany
     {
         return $this->hasMany(MenuCategory::class, 'restaurant_id')->orderBy('display_order');
     }
 
+    /**
+     * @return HasMany<MenuItem, $this>
+     */
     public function items(): HasMany
     {
         return $this->hasMany(MenuItem::class, 'restaurant_id');
     }
 
+    /**
+     * @return HasMany<CuisineTag, $this>
+     */
     public function cuisineTags(): HasMany
     {
         return $this->hasMany(CuisineTag::class, 'restaurant_id');
+    }
+
+    /**
+     * @return HasMany<OpeningHour, $this>
+     */
+    public function openingHours(): HasMany
+    {
+        return $this->hasMany(OpeningHour::class, 'restaurant_id');
+    }
+
+    /**
+     * @return HasMany<RestaurantBranch, $this>
+     */
+    public function branches(): HasMany
+    {
+        return $this->hasMany(RestaurantBranch::class, 'restaurant_id');
     }
 }

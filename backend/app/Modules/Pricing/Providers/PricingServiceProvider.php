@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Pricing\Providers;
 
+use App\Modules\Pricing\Contracts\Services\PricingEngine;
+use App\Modules\Pricing\Contracts\Services\PromotionService;
+use App\Modules\Pricing\Services\PricingEngineImplementation;
+use App\Modules\Pricing\Services\PromotionServiceImplementation;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -14,9 +18,18 @@ final class PricingServiceProvider extends ServiceProvider
     /**
      * Service_Interface to Service_Implementation bindings owned by this module.
      *
+     * The Pricing_Engine is a pure Domain component, so its implementation binds
+     * directly to its Service_Interface seam (Requirement 7, design "Pricing module").
+     * The PromotionService binds to its implementation, which resolves its
+     * repository, the injected Clock, and the IdGenerator from the container
+     * (Requirements 7.5–7.7, 18.4).
+     *
      * @var array<class-string, class-string>
      */
-    public array $bindings = [];
+    public array $bindings = [
+        PricingEngine::class => PricingEngineImplementation::class,
+        PromotionService::class => PromotionServiceImplementation::class,
+    ];
 
     /**
      * Module_Boundary interfaces and external-dependency adapters owned by this module.

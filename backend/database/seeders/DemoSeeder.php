@@ -27,13 +27,8 @@ final class DemoSeeder extends Seeder
         $adminEmail = (string) env('SEED_ADMIN_EMAIL', 'admin@waselna.local');
         $adminPassword = (string) env('SEED_ADMIN_PASSWORD', 'local-seed-password');
 
-        $this->ensureUser($adminEmail, $adminPassword, 'Platform Administrator', 'administrator');
-        $this->ensureUser('customer@waselna.local', $adminPassword, 'Demo Customer', 'customer');
-        $this->ensureUser('operator@waselna.local', $adminPassword, 'Demo Operator', 'restaurant_operator');
-        $this->ensureUser('staff@waselna.local', $adminPassword, 'Demo Staff', 'restaurant_staff');
-        $this->ensureUser('courier@waselna.local', $adminPassword, 'Demo Courier', 'courier');
-
-        $this->ensureRestaurant('Bella Napoli', 'Wood-fired pizza and pasta.', 'Italian', [
+        // Restaurants first, so the operator/staff can be linked to one.
+        $bella = $this->ensureRestaurant('Bella Napoli', 'Wood-fired pizza and pasta.', 'Italian', [
             ['Margherita Pizza', 'Tomato, mozzarella, basil.', 1200],
             ['Spaghetti Carbonara', 'Egg, pecorino, guanciale.', 1400],
             ['Tiramisu', 'Classic coffee dessert.', 600],
@@ -48,15 +43,26 @@ final class DemoSeeder extends Seeder
             ['Chicken Burrito', 'Rice, beans, chicken, salsa.', 950],
             ['Churros', 'Cinnamon sugar, chocolate dip.', 500],
         ]);
+
+        $branchId = RestaurantBranch::query()->where('restaurant_id', $bella->id)->value('id');
+
+        $this->ensureUser($adminEmail, $adminPassword, 'Platform Administrator', 'administrator');
+        $this->ensureUser('customer@waselna.local', $adminPassword, 'Demo Customer', 'customer');
+        // The operator and staff belong to Bella Napoli so their order queue is scoped.
+        $this->ensureUser('operator@waselna.local', $adminPassword, 'Demo Operator', 'restaurant_operator', $bella->id, $branchId);
+        $this->ensureUser('staff@waselna.local', $adminPassword, 'Demo Staff', 'restaurant_staff', $bella->id, $branchId);
+        $this->ensureUser('courier@waselna.local', $adminPassword, 'Demo Courier', 'courier');
     }
 
     /**
      * @param  list<array{0: string, 1: string, 2: int}>  $items
      */
-    private function ensureRestaurant(string $name, string $description, string $cuisine, array $items): void
+    private function ensureRestaurant(string $name, string $description, string $cuisine, array $items): Restaurant
     {
-        if (Restaurant::query()->where('name', $name)->exists()) {
-            return;
+        $existing = Restaurant::query()->where('name', $name)->first();
+
+        if ($existing !== null) {
+            return $existing;
         }
 
         $restaurant = Restaurant::query()->create([
@@ -101,10 +107,18 @@ final class DemoSeeder extends Seeder
                 'display_order' => $index,
             ]);
         }
+
+        return $restaurant;
     }
 
-    private function ensureUser(string $email, string $password, string $displayName, string $role): void
-    {
+    private function ensureUser(
+        string $email,
+        string $password,
+        string $displayName,
+        string $role,
+        ?string $restaurantId = null,
+        ?string $branchId = null,
+    ): void {
         $emailLower = mb_strtolower(trim($email));
 
         if (User::query()->where('email_lower', $emailLower)->exists()) {
@@ -119,6 +133,8 @@ final class DemoSeeder extends Seeder
             'display_name' => $displayName,
             'role' => $role,
             'account_status' => 'active',
+            'restaurant_id' => $restaurantId,
+            'branch_id' => $branchId,
         ]);
     }
 }
