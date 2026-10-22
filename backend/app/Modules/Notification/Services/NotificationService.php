@@ -52,6 +52,7 @@ final class NotificationService
                 'title' => $n->title,
                 'body' => $n->body,
                 'status' => $n->status,
+                'data' => $n->data,
                 'created_at' => $n->created_at,
             ])->all();
     }

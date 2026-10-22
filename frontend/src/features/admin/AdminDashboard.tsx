@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { money } from '../cart/useCart';
 import { useEnums } from '../../shared/enums';
 import {
@@ -23,8 +23,20 @@ const NAV: { key: Section; label: string; icon: string }[] = [
   { key: 'couriers', label: 'Couriers', icon: '🛵' },
 ];
 
-export function AdminDashboard() {
+export function AdminDashboard({
+  focusRestaurantId = null,
+  onFocusHandled,
+}: {
+  focusRestaurantId?: string | null;
+  onFocusHandled?: () => void;
+} = {}) {
   const [section, setSection] = useState<Section>('dashboard');
+
+  // A notification deep-link: jump to the Restaurants section so the targeted
+  // restaurant can be reviewed and published.
+  useEffect(() => {
+    if (focusRestaurantId) setSection('restaurants');
+  }, [focusRestaurantId]);
 
   return (
     <div className="admin-shell">
@@ -43,7 +55,9 @@ export function AdminDashboard() {
 
       <div className="admin-content stack">
         {section === 'dashboard' && <DashboardSection />}
-        {section === 'restaurants' && <RestaurantsSection />}
+        {section === 'restaurants' && (
+          <RestaurantsSection focusId={focusRestaurantId} onFocusHandled={onFocusHandled} />
+        )}
         {section === 'orders' && <OrdersSection />}
         {section === 'couriers' && <CouriersSection />}
       </div>
@@ -123,7 +137,13 @@ function CouriersSection() {
 
 const EMPTY_FORM: NewRestaurant = { name: '', cuisine: '', address: '', currency: 'USD', tax_rate_bp: 0, base_delivery_fee: 0 };
 
-function RestaurantsSection() {
+function RestaurantsSection({
+  focusId = null,
+  onFocusHandled,
+}: {
+  focusId?: string | null;
+  onFocusHandled?: () => void;
+}) {
   const list = useAdminRestaurants();
   const { restaurantStatusLabel } = useEnums();
   const create = useCreateRestaurant();
@@ -134,6 +154,17 @@ function RestaurantsSection() {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<AdminRestaurant | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminRestaurant | null>(null);
+
+  // Notification deep-link: once the list is loaded, open the targeted
+  // restaurant so the admin can review and publish it.
+  useEffect(() => {
+    if (!focusId || !list.data) return;
+    const target = list.data.find((r) => r.id === focusId);
+    if (target) {
+      setEditing(target);
+      onFocusHandled?.();
+    }
+  }, [focusId, list.data, onFocusHandled]);
 
   return (
     <div className="stack">
@@ -181,7 +212,7 @@ function RestaurantsSection() {
 
       {editing && (
         <RestaurantFormModal
-          title={`Edit ${editing.name}`}
+          title={`Review ${editing.name}`}
           initial={{
             name: editing.name,
             currency: editing.currency,
@@ -190,6 +221,35 @@ function RestaurantsSection() {
           }}
           submitting={update.isPending}
           hideCreateOnly
+          headerExtra={
+            <div className="review-banner">
+              <div>
+                <span className="subtle" style={{ fontSize: 12 }}>Current status</span>
+                <div>
+                  <span className={`badge ${(editing.is_discoverable ?? false) ? 'badge-active' : ''}`}>
+                    {restaurantStatusLabel(editing.status)}
+                  </span>
+                </div>
+              </div>
+              {(editing.is_discoverable ?? false) ? (
+                <button
+                  className="btn btn-sm btn-ghost"
+                  disabled={visibility.isPending}
+                  onClick={() => visibility.mutate({ id: editing.id, action: 'suspend' }, { onSuccess: () => setEditing(null) })}
+                >
+                  Suspend
+                </button>
+              ) : (
+                <button
+                  className="btn btn-sm btn-primary"
+                  disabled={visibility.isPending}
+                  onClick={() => visibility.mutate({ id: editing.id, action: 'publish' }, { onSuccess: () => setEditing(null) })}
+                >
+                  Publish &amp; activate
+                </button>
+              )}
+            </div>
+          }
           onClose={() => setEditing(null)}
           onSubmit={(form) =>
             update.mutate(
@@ -224,6 +284,7 @@ function RestaurantFormModal(props: {
   initial: NewRestaurant;
   submitting: boolean;
   hideCreateOnly?: boolean;
+  headerExtra?: React.ReactNode;
   onClose: () => void;
   onSubmit: (form: NewRestaurant) => void;
 }) {
@@ -238,6 +299,7 @@ function RestaurantFormModal(props: {
     <div className="modal-backdrop" onClick={props.onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <h3>{props.title}</h3>
+        {props.headerExtra}
         <form onSubmit={submit} className="stack" style={{ gap: 10, marginTop: 10 }}>
           <div className="field">
             <label htmlFor="rf-name">Name</label>

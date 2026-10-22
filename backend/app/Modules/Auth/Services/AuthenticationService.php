@@ -12,6 +12,7 @@ use App\Modules\Auth\Models\AccessToken;
 use App\Modules\Auth\Models\RefreshToken;
 use App\Modules\Auth\Models\User;
 use App\Modules\Catalog\Boundary\RestaurantProvisioning;
+use App\Modules\Notification\Services\NotificationService;
 use App\Shared\Domain\Exceptions\AuthorizationException;
 use App\Shared\Domain\Exceptions\ValidationException;
 use App\Shared\Enums\UserRole;
@@ -53,6 +54,7 @@ final class AuthenticationService implements CredentialDirectory
         private readonly IdGenerator $ids,
         private readonly \Closure $accountProvisioning,
         private readonly \Closure $restaurantProvisioning,
+        private readonly NotificationService $notifications,
     ) {}
 
     /**
@@ -117,12 +119,42 @@ final class AuthenticationService implements CredentialDirectory
             return $user;
         });
 
+        // A new Restaurant arrives as a draft; notify every Administrator so one
+        // can review it and publish it (Requirement 16, 59). The notification
+        // carries the restaurant_id so the admin surface can deep-link to it.
+        // Done after the registration transaction commits: a notification
+        // failure must never roll back a successful signup.
+        if ($user->role === UserRole::RestaurantOperator->value && $user->restaurant_id !== null) {
+            $this->notifyAdminsOfNewRestaurant($user->restaurant_id, (string) $restaurantName, $user->display_name);
+        }
+
         return [
             'id' => $user->id,
             'email' => $user->email,
             'display_name' => $user->display_name,
             'role' => $user->role,
         ];
+    }
+
+    /**
+     * Records an in-app Notification for every Administrator that a new
+     * Restaurant has registered and is awaiting review.
+     */
+    private function notifyAdminsOfNewRestaurant(string $restaurantId, string $restaurantName, string $operatorName): void
+    {
+        $adminIds = User::query()
+            ->where('role', UserRole::Administrator->value)
+            ->pluck('id');
+
+        foreach ($adminIds as $adminId) {
+            $this->notifications->record(
+                (string) $adminId,
+                'restaurant_registration',
+                'New restaurant awaiting review',
+                sprintf('%s registered "%s". Review and publish it to let it start operating.', $operatorName, $restaurantName),
+                ['restaurant_id' => $restaurantId],
+            );
+        }
     }
 
     /**

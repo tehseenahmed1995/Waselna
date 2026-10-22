@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useNotifications, useMarkNotificationsRead } from './useNotifications';
 
-export function NotificationBell() {
+export function NotificationBell({
+  onOpenRestaurant,
+}: {
+  onOpenRestaurant?: (restaurantId: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const notifications = useNotifications();
   const markRead = useMarkNotificationsRead();
@@ -13,6 +17,11 @@ export function NotificationBell() {
     const next = !open;
     setOpen(next);
     if (next && unread > 0) markRead.mutate();
+  };
+
+  const restaurantIdOf = (data: Record<string, unknown> | null): string | null => {
+    const id = data?.restaurant_id;
+    return typeof id === 'string' ? id : null;
   };
 
   return (
@@ -38,18 +47,33 @@ export function NotificationBell() {
       {open && (
         <div
           className="card"
-          style={{ position: 'absolute', right: 0, top: 40, width: 300, zIndex: 20, boxShadow: 'var(--shadow-lg)' }}
+          style={{ position: 'absolute', right: 0, top: 40, width: 320, zIndex: 20, boxShadow: 'var(--shadow-lg)' }}
         >
           <div className="card-body" style={{ maxHeight: 360, overflow: 'auto' }}>
             <h3 style={{ marginBottom: 10 }}>Notifications</h3>
             {items.length === 0 && <div className="empty">Nothing yet.</div>}
-            {items.map((n) => (
-              <div key={n.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <strong style={{ fontSize: 13 }}>{n.title}</strong>
-                <div className="subtle">{n.body}</div>
-                <div className="subtle" style={{ fontSize: 11 }}>{new Date(n.created_at).toLocaleTimeString()}</div>
-              </div>
-            ))}
+            {items.map((n) => {
+              const restaurantId = restaurantIdOf(n.data);
+              const actionable = n.category === 'restaurant_registration' && restaurantId && onOpenRestaurant;
+              return (
+                <div key={n.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                  <strong style={{ fontSize: 13 }}>{n.title}</strong>
+                  <div className="subtle">{n.body}</div>
+                  <div className="subtle" style={{ fontSize: 11 }}>{new Date(n.created_at).toLocaleTimeString()}</div>
+                  {actionable && (
+                    <button
+                      className="btn btn-primary btn-sm mt-2"
+                      onClick={() => {
+                        onOpenRestaurant!(restaurantId!);
+                        setOpen(false);
+                      }}
+                    >
+                      Review restaurant →
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

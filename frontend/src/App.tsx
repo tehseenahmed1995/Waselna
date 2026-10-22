@@ -24,6 +24,7 @@ export function App() {
   const [gateView, setGateView] = useState<'landing' | 'auth'>('landing');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authRole, setAuthRole] = useState<RegisterRole>('customer');
+  const [focusRestaurantId, setFocusRestaurantId] = useState<string | null>(null);
   const cart = useCart();
   const { roleLabel } = useEnums();
 
@@ -104,7 +105,7 @@ export function App() {
               </button>
             </>
           )}
-          <NotificationBell />
+          <NotificationBell onOpenRestaurant={(id) => setFocusRestaurantId(id)} />
           <div className="user-menu">
             <div className="user-avatar" aria-hidden="true">{initials}</div>
             <div className="user-chip" title={me.data?.email ?? undefined}>
@@ -133,7 +134,12 @@ export function App() {
 
         {role === 'courier' && <CourierDashboard />}
 
-        {role === 'administrator' && <AdminDashboard />}
+        {role === 'administrator' && (
+          <AdminDashboard
+            focusRestaurantId={focusRestaurantId}
+            onFocusHandled={() => setFocusRestaurantId(null)}
+          />
+        )}
 
         {isCustomer && tab === 'browse' && (
           <div className="page-grid">
