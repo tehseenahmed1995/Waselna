@@ -11,8 +11,10 @@ use App\Modules\Auth\Domain\ChangePasswordCommand;
 use App\Modules\Auth\Models\AccessToken;
 use App\Modules\Auth\Models\RefreshToken;
 use App\Modules\Auth\Models\User;
+use App\Modules\Catalog\Boundary\RestaurantProvisioning;
 use App\Shared\Domain\Exceptions\AuthorizationException;
 use App\Shared\Domain\Exceptions\ValidationException;
+use App\Shared\Enums\UserRole;
 use App\Shared\Support\Clock;
 use App\Shared\Support\IdGenerator;
 use Illuminate\Support\Facades\DB;
@@ -50,40 +52,66 @@ final class AuthenticationService implements CredentialDirectory
         private readonly Clock $clock,
         private readonly IdGenerator $ids,
         private readonly \Closure $accountProvisioning,
+        private readonly \Closure $restaurantProvisioning,
     ) {}
 
     /**
+     * Self-service registration. The public endpoint allows only the three
+     * self-service Roles: Customer, Restaurant_Operator, Courier. A
+     * Restaurant_Operator additionally gets a draft Restaurant and main
+     * Restaurant_Branch provisioned and linked, all in one transaction.
+     *
      * @return array{id: string, email: string, display_name: string, role: string}
      */
-    public function register(string $email, string $password, string $displayName): array
+    public function register(string $email, string $password, string $displayName, string $role = 'customer', ?string $restaurantName = null): array
     {
         $emailLower = mb_strtolower(trim($email));
+
+        $allowed = [UserRole::Customer->value, UserRole::RestaurantOperator->value, UserRole::Courier->value];
+        if (! in_array($role, $allowed, true)) {
+            throw ValidationException::forField('role', 'in:'.implode(',', $allowed));
+        }
 
         if (User::query()->where('email_lower', $emailLower)->exists()) {
             throw ValidationException::because('email_already_registered', 'That email address is already registered.');
         }
 
+        if ($role === UserRole::RestaurantOperator->value && trim((string) $restaurantName) === '') {
+            throw ValidationException::forField('restaurant_name', 'required');
+        }
+
         $passwordHash = Hash::make($password);
 
-        // Registration creates the Auth-owned `users` row and the Account-owned
-        // `user_profiles` row plus the ten `notification_preferences` rows in one
-        // transaction (design "Transaction boundaries"; Requirements 1.1, 16.12).
-        // A failure in either half rolls the whole thing back, so no partial
-        // Platform user or profile is ever left behind. The Account writes go
-        // through the AccountProvisioning Module_Boundary rather than Account's
-        // SQL, keeping the ownership rule of Requirement 22 intact.
-        $user = DB::transaction(function () use ($email, $emailLower, $passwordHash, $displayName): User {
+        // One transaction creates the Auth-owned `users` row and the Role's
+        // owned records (Account profile for a Customer; a draft Restaurant +
+        // main Branch for an Operator). Cross-module writes go through the
+        // AccountProvisioning / RestaurantProvisioning boundaries, so a failure
+        // in any half rolls the whole registration back.
+        $user = DB::transaction(function () use ($email, $emailLower, $passwordHash, $displayName, $role, $restaurantName): User {
+            $restaurantId = null;
+            $branchId = null;
+
+            if ($role === UserRole::RestaurantOperator->value) {
+                $ids = ($this->restaurantProvisioning)()->provisionOperatorRestaurant((string) $restaurantName);
+                $restaurantId = $ids['restaurant_id'];
+                $branchId = $ids['branch_id'];
+            }
+
             $user = new User([
                 'id' => $this->ids->ulid(),
                 'email' => $email,
                 'email_lower' => $emailLower,
                 'password_hash' => $passwordHash,
                 'display_name' => $displayName,
-                'role' => 'customer',
+                'role' => $role,
                 'account_status' => 'active',
+                'restaurant_id' => $restaurantId,
+                'branch_id' => $branchId,
             ]);
             $user->save();
 
+            // Every Platform user gets the Account-owned profile + notification
+            // preference rows (Requirement 16.12), not only Customers.
             ($this->accountProvisioning)()->provisionCustomerProfile($user->id);
 
             return $user;

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { AuthScreen } from './features/auth/AuthScreen';
+import { LandingPage } from './features/landing/LandingPage';
+import type { RegisterRole } from './features/auth/useAuth';
 import { useAccessToken, useCurrentUser, useLogout } from './features/auth/useAuth';
 import { RestaurantList } from './features/catalog/RestaurantList';
 import { CartPanel } from './features/cart/CartPanel';
@@ -19,11 +21,35 @@ export function App() {
   const logout = useLogout();
   const [tab, setTab] = useState<Tab>('browse');
   const [focusOrderId, setFocusOrderId] = useState<string | null>(null);
+  const [gateView, setGateView] = useState<'landing' | 'auth'>('landing');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authRole, setAuthRole] = useState<RegisterRole>('customer');
   const cart = useCart();
   const { roleLabel } = useEnums();
 
   if (token === null || me.isError) {
-    return <AuthScreen />;
+    if (gateView === 'landing') {
+      return (
+        <LandingPage
+          onChoose={(r) => {
+            setAuthRole(r);
+            setAuthMode('register');
+            setGateView('auth');
+          }}
+          onSignIn={() => {
+            setAuthMode('login');
+            setGateView('auth');
+          }}
+        />
+      );
+    }
+    return (
+      <AuthScreen
+        initialMode={authMode}
+        initialRole={authRole}
+        onBack={() => setGateView('landing')}
+      />
+    );
   }
 
   if (me.isLoading) {

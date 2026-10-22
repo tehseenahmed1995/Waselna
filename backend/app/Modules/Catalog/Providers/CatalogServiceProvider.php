@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Catalog\Providers;
 
+use App\Modules\Catalog\Boundary\RestaurantProvisioning;
 use App\Modules\Catalog\Boundary\RestaurantStatusDirectory;
 use App\Modules\Catalog\Contracts\Services\MenuManagementService;
 use App\Modules\Catalog\Contracts\Services\MenuQueryService;
@@ -18,6 +19,7 @@ use App\Modules\Catalog\Services\MenuManagementServiceImplementation;
 use App\Modules\Catalog\Services\MenuQueryServiceImplementation;
 use App\Modules\Catalog\Services\RestaurantLifecycleServiceImplementation;
 use App\Modules\Catalog\Services\RestaurantManagementServiceImplementation;
+use App\Modules\Catalog\Services\RestaurantProvisioningImplementation;
 use App\Modules\Catalog\Services\RestaurantStatusDirectoryImplementation;
 use App\Shared\Http\Middleware\AuthenticateBearer;
 use App\Shared\Http\Middleware\AuthorizeRole;
@@ -58,6 +60,9 @@ final class CatalogServiceProvider extends ServiceProvider
         // The lifecycle-status seam the Order checkout path reads to reject a
         // suspended Restaurant with `restaurant_suspended` (Requirement 18.2).
         RestaurantStatusDirectory::class => RestaurantStatusDirectoryImplementation::class,
+        // The provisioning seam the Auth module uses to create a draft Restaurant
+        // and main Restaurant_Branch when a Restaurant_Operator self-registers.
+        RestaurantProvisioning::class => RestaurantProvisioningImplementation::class,
     ];
 
     /**

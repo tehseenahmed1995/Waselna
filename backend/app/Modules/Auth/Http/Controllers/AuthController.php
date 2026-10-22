@@ -22,6 +22,8 @@ final class AuthController
             $request->string('email')->toString(),
             $request->string('password')->toString(),
             $request->string('display_name')->toString(),
+            $request->string('role', 'customer')->toString(),
+            $request->filled('restaurant_name') ? $request->string('restaurant_name')->toString() : null,
         );
 
         return new JsonResponse(['data' => $user], 201);

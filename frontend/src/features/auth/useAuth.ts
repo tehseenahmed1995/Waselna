@@ -53,9 +53,19 @@ export function useLogin() {
   });
 }
 
+export type RegisterRole = 'customer' | 'restaurant_operator' | 'courier';
+
+export interface RegisterInput {
+  email: string;
+  password: string;
+  display_name: string;
+  role?: RegisterRole;
+  restaurant_name?: string;
+}
+
 export function useRegister() {
   return useMutation({
-    mutationFn: (input: { email: string; password: string; display_name: string }) =>
+    mutationFn: (input: RegisterInput) =>
       apiFetch<AuthUser>('/auth/register', { method: 'POST', body: input, auth: false }),
   });
 }

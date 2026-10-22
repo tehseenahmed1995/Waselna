@@ -8,6 +8,7 @@ use App\Modules\Account\Boundary\AccountProvisioning;
 use App\Modules\Auth\Boundary\CredentialDirectory;
 use App\Modules\Auth\Http\Controllers\AuthController;
 use App\Modules\Auth\Services\AuthenticationService;
+use App\Modules\Catalog\Boundary\RestaurantProvisioning;
 use App\Shared\Http\Middleware\AuthenticateBearer;
 use App\Shared\Support\Clock;
 use App\Shared\Support\IdGenerator;
@@ -50,6 +51,7 @@ final class AuthServiceProvider extends ServiceProvider
                 $app->make(Clock::class),
                 $app->make(IdGenerator::class),
                 static fn (): AccountProvisioning => $app->make(AccountProvisioning::class),
+                static fn (): RestaurantProvisioning => $app->make(RestaurantProvisioning::class),
             );
         });
 
