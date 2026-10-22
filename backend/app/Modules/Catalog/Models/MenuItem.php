@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $category_id
  * @property string $name
  * @property ?string $description
+ * @property ?string $image_url
  * @property int $price_minor
  * @property bool $is_available
  * @property int $display_order

@@ -18,6 +18,7 @@ final readonly class MenuItemCommand
         public string $categoryId,
         public string $name,
         public ?string $description,
+        public ?string $imageUrl,
         public int $priceMinor,
         public bool $isAvailable,
         public int $displayOrder,
@@ -33,11 +34,16 @@ final readonly class MenuItemCommand
             ? (string) $input['description']
             : null;
 
+        $imageUrl = array_key_exists('image_url', $input) && $input['image_url'] !== null && trim((string) $input['image_url']) !== ''
+            ? trim((string) $input['image_url'])
+            : null;
+
         return new self(
             restaurantId: $restaurantId,
             categoryId: (string) $input['category_id'],
             name: trim((string) $input['name']),
             description: $description,
+            imageUrl: $imageUrl,
             priceMinor: (int) $input['price_minor'],
             isAvailable: (bool) ($input['is_available'] ?? true),
             displayOrder: (int) $input['display_order'],

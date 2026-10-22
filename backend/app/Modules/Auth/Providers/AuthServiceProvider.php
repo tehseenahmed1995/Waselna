@@ -7,10 +7,12 @@ namespace App\Modules\Auth\Providers;
 use App\Modules\Account\Boundary\AccountProvisioning;
 use App\Modules\Auth\Boundary\CredentialDirectory;
 use App\Modules\Auth\Http\Controllers\AuthController;
+use App\Modules\Auth\Http\Controllers\StaffController;
 use App\Modules\Auth\Services\AuthenticationService;
 use App\Modules\Catalog\Boundary\RestaurantProvisioning;
 use App\Modules\Notification\Services\NotificationService;
 use App\Shared\Http\Middleware\AuthenticateBearer;
+use App\Shared\Http\Middleware\AuthorizeRole;
 use App\Shared\Support\Clock;
 use App\Shared\Support\IdGenerator;
 use Illuminate\Support\Facades\Route;
@@ -75,6 +77,13 @@ final class AuthServiceProvider extends ServiceProvider
                 ->middleware(AuthenticateBearer::class.':required');
             Route::get('auth/me', [AuthController::class, 'me'])
                 ->middleware(AuthenticateBearer::class.':required');
+
+            // Restaurant_Staff management by a Restaurant_Operator (Requirement 1,
+            // 20). Scoped to the acting operator's own Restaurant inside the Service.
+            $operator = [AuthenticateBearer::class.':required', AuthorizeRole::class.':restaurant_operator'];
+            Route::get('restaurant/staff', [StaffController::class, 'index'])->middleware($operator);
+            Route::post('restaurant/staff', [StaffController::class, 'store'])->middleware($operator);
+            Route::delete('restaurant/staff/{staff}', [StaffController::class, 'destroy'])->middleware($operator);
         });
     }
 }

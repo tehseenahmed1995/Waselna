@@ -27,6 +27,7 @@ export interface MenuItem {
   category_id: string;
   name: string;
   description: string | null;
+  image_url: string | null;
   price_minor: number;
   is_available: boolean;
   display_order: number;
@@ -104,6 +105,7 @@ export interface NewMenuItem {
   category_id: string;
   name: string;
   description?: string | null;
+  image_url?: string | null;
   price_minor: number;
   is_available?: boolean;
   display_order: number;
@@ -128,6 +130,7 @@ export function useUpdateItem(restaurantId: string | null) {
           category_id: input.category_id,
           name: input.name,
           description: input.description ?? null,
+          image_url: input.image_url ?? null,
           price_minor: input.price_minor,
           display_order: input.display_order,
         },
@@ -154,5 +157,43 @@ export function useSetItemAvailability(restaurantId: string | null) {
         body: { is_available: input.is_available },
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['menu-items', restaurantId] }),
+  });
+}
+
+// ---- Staff ------------------------------------------------------------------
+export interface StaffMember {
+  id: string;
+  display_name: string;
+  email: string;
+  account_status: string;
+}
+
+export function useStaff(enabled: boolean) {
+  return useQuery({
+    queryKey: ['restaurant-staff'],
+    queryFn: () => apiFetch<StaffMember[]>('/restaurant/staff'),
+    enabled,
+  });
+}
+
+export interface NewStaff {
+  email: string;
+  display_name: string;
+  password: string;
+}
+
+export function useInviteStaff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewStaff) => apiFetch<StaffMember>('/restaurant/staff', { method: 'POST', body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurant-staff'] }),
+  });
+}
+
+export function useRemoveStaff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (staffId: string) => apiFetch(`/restaurant/staff/${staffId}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurant-staff'] }),
   });
 }

@@ -31,6 +31,7 @@ final class MenuItemRequest extends FormRequest
             'category_id' => ['required', 'string', 'min:1'],
             'name' => ['required', 'string', 'min:1', 'max:100'],
             'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'image_url' => ['sometimes', 'nullable', 'string', 'url', 'max:2048'],
             'price_minor' => ['required', 'integer'],
             'is_available' => ['sometimes', 'boolean'],
             'display_order' => ['required', 'integer', 'between:0,9999'],

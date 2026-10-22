@@ -861,3 +861,31 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 10px;
 }
+
+/* Menu item image thumbnail + modal preview. */
+.item-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.item-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--muted);
+}
+
+.item-image-preview {
+  margin-top: 8px;
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}

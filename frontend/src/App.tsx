@@ -130,7 +130,7 @@ export function App() {
       </header>
 
       <main className="container">
-        {(role === 'restaurant_operator' || role === 'restaurant_staff') && <OperatorDashboard />}
+        {(role === 'restaurant_operator' || role === 'restaurant_staff') && <OperatorDashboard role={role} />}
 
         {role === 'courier' && <CourierDashboard />}
 

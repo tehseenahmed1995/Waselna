@@ -21,10 +21,15 @@ import {
   useUpdateItem,
   useDeleteItem,
   useSetItemAvailability,
+  useStaff,
+  useInviteStaff,
+  useRemoveStaff,
   type RestaurantProfile,
   type MenuCategory,
   type MenuItem,
   type NewMenuItem,
+  type StaffMember,
+  type NewStaff,
 } from './useRestaurant';
 
 const KITCHEN_LABELS: Record<string, string> = {
@@ -32,24 +37,31 @@ const KITCHEN_LABELS: Record<string, string> = {
   ready_for_pickup: 'Ready',
 };
 
-type Section = 'overview' | 'menu' | 'profile' | 'orders';
+type Section = 'overview' | 'menu' | 'staff' | 'profile' | 'orders';
 
 const NAV: { key: Section; label: string; icon: string }[] = [
   { key: 'overview', label: 'Overview', icon: '▣' },
   { key: 'menu', label: 'Menu', icon: '🍽' },
+  { key: 'staff', label: 'Staff', icon: '👥' },
   { key: 'profile', label: 'Profile', icon: '🏪' },
   { key: 'orders', label: 'Kitchen queue', icon: '🧾' },
 ];
 
-export function OperatorDashboard() {
+export function OperatorDashboard({ role = 'restaurant_operator' }: { role?: string }) {
   const me = useCurrentUser();
   const restaurantId = me.data?.restaurant_id ?? null;
-  const [section, setSection] = useState<Section>('overview');
+  const isStaff = role === 'restaurant_staff';
+
+  // Staff may only work the kitchen queue (view orders + accept/reject/ready).
+  // Menu editing, profile, go-live, and staff management are operator-only, so
+  // those sections are hidden from staff entirely rather than shown and 403ing.
+  const nav = isStaff ? NAV.filter((n) => n.key === 'orders') : NAV;
+  const [section, setSection] = useState<Section>(isStaff ? 'orders' : 'overview');
 
   return (
     <div className="admin-shell">
       <nav className="admin-sidebar">
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <button
             key={n.key}
             className={`admin-nav-item ${section === n.key ? 'active' : ''}`}
@@ -62,9 +74,10 @@ export function OperatorDashboard() {
       </nav>
 
       <div className="admin-content stack">
-        {section === 'overview' && <OverviewSection restaurantId={restaurantId} onGo={setSection} />}
-        {section === 'menu' && <MenuSection restaurantId={restaurantId} />}
-        {section === 'profile' && <ProfileSection restaurantId={restaurantId} />}
+        {!isStaff && section === 'overview' && <OverviewSection restaurantId={restaurantId} onGo={setSection} />}
+        {!isStaff && section === 'menu' && <MenuSection restaurantId={restaurantId} />}
+        {!isStaff && section === 'staff' && <StaffSection active={section === 'staff'} />}
+        {!isStaff && section === 'profile' && <ProfileSection restaurantId={restaurantId} />}
         {section === 'orders' && <OrdersSection />}
       </div>
     </div>
@@ -231,9 +244,21 @@ function ItemsForCategory({
         )}
         {items.data?.filter((i) => !i.archived).map((it) => (
           <div className="list-row" key={it.id}>
-            <div className="row-main">
-              <strong>{it.name}</strong>
-              <span className="subtle">{it.description || 'No description'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {it.image_url ? (
+                <img
+                  src={it.image_url}
+                  alt=""
+                  className="item-thumb"
+                  onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
+                />
+              ) : (
+                <div className="item-thumb item-thumb-empty" aria-hidden="true">🍽</div>
+              )}
+              <div className="row-main">
+                <strong>{it.name}</strong>
+                <span className="subtle">{it.description || 'No description'}</span>
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="price">{money({ amount: it.price_minor, currency })}</span>
@@ -341,6 +366,7 @@ function ItemModal({
   const [name, setName] = useState(existing?.name ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [price, setPrice] = useState(existing ? (existing.price_minor / 100).toFixed(2) : '');
+  const [imageUrl, setImageUrl] = useState(existing?.image_url ?? '');
   const busy = create.isPending || update.isPending;
   const err = (create.error ?? update.error) instanceof ApiRequestError ? (create.error ?? update.error) as ApiRequestError : null;
 
@@ -352,6 +378,7 @@ function ItemModal({
       category_id: categoryId,
       name,
       description: description || null,
+      image_url: imageUrl.trim() || null,
       price_minor: priceMinor,
       display_order: nextOrder,
     };
@@ -378,6 +405,13 @@ function ItemModal({
           <div className="field">
             <label htmlFor="it-price">Price</label>
             <input id="it-price" className="input" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="9.99" />
+          </div>
+          <div className="field">
+            <label htmlFor="it-image">Image URL (optional)</label>
+            <input id="it-image" className="input" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…/photo.jpg" />
+            {imageUrl.trim() && (
+              <img src={imageUrl} alt="" className="item-image-preview" onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} onLoad={(e) => ((e.target as HTMLImageElement).style.display = 'block')} />
+            )}
           </div>
           {err && <div className="alert alert-error">{err.error.message}</div>}
           <div className="row-between" style={{ justifyContent: 'flex-end', gap: 10 }}>
@@ -544,6 +578,121 @@ function OrdersSection() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---- Staff ------------------------------------------------------------------
+function StaffSection({ active }: { active: boolean }) {
+  const staff = useStaff(active);
+  const invite = useInviteStaff();
+  const remove = useRemoveStaff();
+  const [showInvite, setShowInvite] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<StaffMember | null>(null);
+
+  return (
+    <div className="stack">
+      <div className="row-between">
+        <h1>Staff</h1>
+        <button className="btn btn-primary" onClick={() => setShowInvite(true)}>+ Add staff</button>
+      </div>
+      <p className="subtle" style={{ marginTop: -8 }}>
+        Staff can view the kitchen queue and toggle item availability. They sign in with the email and password you set here.
+      </p>
+
+      <div className="card">
+        {(staff.data?.length ?? 0) === 0 && <div className="empty">No staff yet. Invite your first team member.</div>}
+        {staff.data?.map((m) => (
+          <div className="list-row" key={m.id}>
+            <div className="row-main">
+              <strong>{m.display_name}</strong>
+              <span className="subtle">{m.email}</span>
+            </div>
+            <button className="btn btn-sm btn-danger" onClick={() => setConfirmRemove(m)} disabled={remove.isPending}>
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {showInvite && (
+        <StaffModal
+          submitting={invite.isPending}
+          error={invite.error instanceof ApiRequestError ? invite.error.error.message : null}
+          onClose={() => setShowInvite(false)}
+          onSubmit={(form) => invite.mutate(form, { onSuccess: () => setShowInvite(false) })}
+        />
+      )}
+
+      {confirmRemove && (
+        <div className="modal-backdrop" onClick={() => setConfirmRemove(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Remove {confirmRemove.display_name}?</h3>
+            <p className="subtle mt-2">This staff member will lose access to your restaurant immediately.</p>
+            <div className="row-between mt-2" style={{ justifyContent: 'flex-end', gap: 10 }}>
+              <button className="btn btn-ghost" onClick={() => setConfirmRemove(null)}>Cancel</button>
+              <button
+                className="btn btn-danger"
+                disabled={remove.isPending}
+                onClick={() => remove.mutate(confirmRemove.id, { onSuccess: () => setConfirmRemove(null) })}
+              >
+                {remove.isPending ? 'Removing…' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StaffModal({
+  submitting,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  submitting: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (form: NewStaff) => void;
+}) {
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!displayName.trim() || !email.trim() || password.length < 12) return;
+    onSubmit({ display_name: displayName, email, password });
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <h3>Add staff member</h3>
+        <form onSubmit={submit} className="stack" style={{ gap: 10, marginTop: 10 }}>
+          <div className="field">
+            <label htmlFor="st-name">Name</label>
+            <input id="st-name" className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Jane Cook" />
+          </div>
+          <div className="field">
+            <label htmlFor="st-email">Email</label>
+            <input id="st-email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@example.com" />
+          </div>
+          <div className="field">
+            <label htmlFor="st-pass">Initial password (min 12 chars)</label>
+            <input id="st-pass" className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 12 characters" />
+          </div>
+          {error && <div className="alert alert-error">{error}</div>}
+          <div className="row-between" style={{ justifyContent: 'flex-end', gap: 10 }}>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={submitting || password.length < 12}>
+              {submitting ? 'Adding…' : 'Add staff'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
