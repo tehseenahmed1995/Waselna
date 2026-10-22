@@ -71,6 +71,8 @@ final class AuthController
             'account_status' => $actor?->accountStatus,
             'display_name' => $user?->display_name,
             'email' => $user?->email,
+            'restaurant_id' => $user?->restaurant_id,
+            'branch_id' => $user?->branch_id,
         ]], 200);
     }
 }
