@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { money } from '../cart/useCart';
 import { useEnums } from '../../shared/enums';
+import { OrderTrackingPanel } from '../tracking/OrderTrackingPanel';
+import { isTrackable } from '../tracking/useTracking';
 import { useCurrentUser } from '../auth/useAuth';
 import { ApiRequestError } from '../../api/client';
 import {
@@ -539,50 +541,92 @@ function OrdersSection() {
       )}
 
       {queue.data?.map((o) => (
-        <div className="card" key={o.id}>
-          <div className="card-body">
-            <div className="row-between">
-              <div className="row-main">
-                <strong>{o.order_number}</strong>
-                <span className="subtle">{new Date(o.created_at).toLocaleTimeString()}</span>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="price">{money(o.order_total)}</div>
-                <span className="badge badge-active">{statusLabel(o.status)}</span>
-              </div>
-            </div>
+        <QueueOrderCard
+          key={o.id}
+          order={o}
+          statusLabel={statusLabel}
+          onAccept={() => accept.mutate({ orderId: o.id })}
+          onReject={() => reject.mutate({ orderId: o.id, reason: 'Kitchen unavailable' })}
+          onReady={() => ready.mutate({ orderId: o.id })}
+          accepting={accept.isPending}
+          rejecting={reject.isPending}
+          readying={ready.isPending}
+        />
+      ))}
+    </div>
+  );
+}
 
-            <div className="mt-2">
-              {o.lines.map((l, i) => (
-                <div className="summary-row" key={i}>
-                  <span>{l.quantity} × {l.name}</span>
-                </div>
-              ))}
-            </div>
+function QueueOrderCard({
+  order,
+  statusLabel,
+  onAccept,
+  onReject,
+  onReady,
+  accepting,
+  rejecting,
+  readying,
+}: {
+  order: { id: string; order_number: string; status: string; order_total: { amount: number; currency: string }; created_at: string; lines: { quantity: number; name: string }[] };
+  statusLabel: (s: string) => string;
+  onAccept: () => void;
+  onReject: () => void;
+  onReady: () => void;
+  accepting: boolean;
+  rejecting: boolean;
+  readying: boolean;
+}) {
+  const [showTrack, setShowTrack] = useState(false);
+  const trackable = isTrackable(order.status);
 
-            <div className="row-between mt-4" style={{ gap: 8 }}>
-              {o.status === 'confirmed' && (
-                <>
-                  <button className="btn btn-primary btn-sm" disabled={accept.isPending} onClick={() => accept.mutate({ orderId: o.id })}>
-                    Accept
-                  </button>
-                  <button className="btn btn-ghost btn-sm" disabled={reject.isPending} onClick={() => reject.mutate({ orderId: o.id, reason: 'Kitchen unavailable' })}>
-                    Reject
-                  </button>
-                </>
-              )}
-              {o.status === 'preparing' && (
-                <button className="btn btn-primary btn-sm" disabled={ready.isPending} onClick={() => ready.mutate({ orderId: o.id })}>
-                  Mark ready for pickup
-                </button>
-              )}
-              {['ready_for_pickup', 'assigned_to_rider', 'picked_up', 'out_for_delivery'].includes(o.status) && (
-                <span className="subtle">Awaiting courier / in delivery</span>
-              )}
-            </div>
+  return (
+    <div className="card">
+      <div className="card-body">
+        <div className="row-between">
+          <div className="row-main">
+            <strong>{order.order_number}</strong>
+            <span className="subtle">{new Date(order.created_at).toLocaleTimeString()}</span>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div className="price">{money(order.order_total)}</div>
+            <span className="badge badge-active">{statusLabel(order.status)}</span>
           </div>
         </div>
-      ))}
+
+        <div className="mt-2">
+          {order.lines.map((l, i) => (
+            <div className="summary-row" key={i}>
+              <span>{l.quantity} × {l.name}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="row-between mt-4" style={{ gap: 8 }}>
+          {order.status === 'confirmed' && (
+            <>
+              <button className="btn btn-primary btn-sm" disabled={accepting} onClick={onAccept}>Accept</button>
+              <button className="btn btn-ghost btn-sm" disabled={rejecting} onClick={onReject}>Reject</button>
+            </>
+          )}
+          {order.status === 'preparing' && (
+            <button className="btn btn-primary btn-sm" disabled={readying} onClick={onReady}>Mark ready for pickup</button>
+          )}
+          {['ready_for_pickup', 'assigned_to_rider', 'picked_up', 'out_for_delivery'].includes(order.status) && (
+            <span className="subtle">Awaiting courier / in delivery</span>
+          )}
+          {trackable && (
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowTrack((v) => !v)}>
+              {showTrack ? 'Hide tracking' : '📍 Track'}
+            </button>
+          )}
+        </div>
+
+        {showTrack && (
+          <div className="mt-2">
+            <OrderTrackingPanel orderId={order.id} status={order.status} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -829,6 +873,8 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
                 </div>
               </div>
             )}
+
+            <OrderTrackingPanel orderId={o.id} status={o.status} />
 
             {o.timeline && o.timeline.length > 0 && (
               <div>

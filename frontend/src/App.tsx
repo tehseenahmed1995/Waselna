@@ -153,16 +153,7 @@ export function App() {
           </div>
         )}
 
-        {isCustomer && tab === 'orders' && (
-          <>
-            {focusOrderId && (
-              <button className="btn btn-ghost btn-sm mt-2" style={{ marginBottom: 16 }} onClick={() => setFocusOrderId(null)}>
-                ← All orders
-              </button>
-            )}
-            <OrdersView focusOrderId={focusOrderId} />
-          </>
-        )}
+        {isCustomer && tab === 'orders' && <OrdersView focusOrderId={focusOrderId} />}
       </main>
     </div>
   );

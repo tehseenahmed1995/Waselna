@@ -3,6 +3,7 @@ import { useOrder, useOrders } from './useOrders';
 import { useSubmitReview } from './useReview';
 import { money } from '../cart/useCart';
 import { useEnums } from '../../shared/enums';
+import { OrderTrackingPanel } from '../tracking/OrderTrackingPanel';
 
 const PAYMENT_LABELS: Record<string, string> = {
   none: 'Not started',
@@ -17,13 +18,18 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
   const orders = useOrders();
-  const focused = useOrder(focusOrderId);
+  // The open order: the checkout-provided focus by default, overridable by
+  // clicking a row in the list. `undefined` means not yet chosen so the prop
+  // still wins; `null` means the user explicitly went back to the list.
+  const [selected, setSelected] = useState<string | null | undefined>(undefined);
+  const selectedId = selected === undefined ? focusOrderId : selected;
+  const focused = useOrder(selectedId);
   const review = useSubmitReview();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const { orderStatusLabel } = useEnums();
 
-  if (focusOrderId && focused.data) {
+  if (selectedId && focused.data) {
     const o = focused.data;
     const payment = o.payment;
     const paid = payment?.status === 'captured';
@@ -31,6 +37,9 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
 
     return (
       <div className="stack">
+        <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setSelected(null)}>
+          ← All orders
+        </button>
         <div className="card">
           <div className="card-body">
             <div className="row-between">
@@ -78,6 +87,8 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
             )}
           </div>
         </div>
+
+        <OrderTrackingPanel orderId={o.id} status={o.status} />
 
         {delivered && (
           <div className="card">
@@ -158,7 +169,7 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
     <div className="stack">
       <h2>Your orders</h2>
       {orders.data?.map((o) => (
-        <div className="card" key={o.id}>
+        <button className="card order-row-button" key={o.id} onClick={() => setSelected(o.id)}>
           <div className="card-body row-between">
             <div className="row-main">
               <strong>{o.order_number}</strong>
@@ -169,7 +180,7 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
               <span className="badge">{orderStatusLabel(o.status)}</span>
             </div>
           </div>
-        </div>
+        </button>
       ))}
     </div>
   );

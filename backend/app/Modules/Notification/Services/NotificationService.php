@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Notification\Services;
 
 use App\Modules\Auth\Domain\ActorContext;
+use App\Modules\Notification\Events\NotificationCreated;
 use App\Modules\Notification\Models\Notification;
 use App\Shared\Support\Clock;
 use Illuminate\Support\Str;
@@ -21,9 +22,10 @@ final class NotificationService
     public function record(string $userId, string $category, string $title, string $body, ?array $data = null): void
     {
         $now = $this->clock->nowUtc();
+        $id = (string) Str::ulid();
 
         Notification::query()->create([
-            'id' => (string) Str::ulid(),
+            'id' => $id,
             'user_id' => $userId,
             'category' => $category,
             'channel' => 'in_app',
@@ -34,6 +36,9 @@ final class NotificationService
             'sent_at' => $now,
             'created_at' => $now,
         ]);
+
+        // Push to the recipient's private channel so their bell updates live.
+        NotificationCreated::dispatch($userId, $id, $category, $title, $body, $data, $now->format(DATE_ATOM));
     }
 
     /**
@@ -41,8 +46,12 @@ final class NotificationService
      */
     public function list(ActorContext $actor): array
     {
+        // Only the last 5 days, so the list stays small instead of loading all.
+        $since = $this->clock->nowUtc()->modify('-5 days');
+
         return Notification::query()
             ->where('user_id', $actor->userId)
+            ->where('created_at', '>=', $since)
             ->orderByDesc('created_at')
             ->limit(50)
             ->get()

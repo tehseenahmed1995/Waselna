@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNotifications, useMarkNotificationsRead } from './useNotifications';
+import { useNotifications, useMarkNotificationsRead, useRealtimeNotifications } from './useNotifications';
+import { useCurrentUser } from '../auth/useAuth';
 
 export function NotificationBell({
   onOpenRestaurant,
@@ -9,6 +10,8 @@ export function NotificationBell({
   const [open, setOpen] = useState(false);
   const notifications = useNotifications();
   const markRead = useMarkNotificationsRead();
+  const me = useCurrentUser();
+  useRealtimeNotifications(me.data?.id);
 
   const items = notifications.data ?? [];
   const unread = items.filter((n) => n.status === 'sent').length;

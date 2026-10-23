@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { money } from '../cart/useCart';
 import { useEnums } from '../../shared/enums';
 import {
@@ -11,6 +11,7 @@ import {
   useCourierHistory,
   type CourierHistoryFilters,
 } from './useCourier';
+import { useReportLocation } from '../tracking/useTracking';
 
 function formatAddress(addr: Record<string, unknown> | null): string {
   if (!addr) return 'Address unavailable';
@@ -104,6 +105,9 @@ export function CourierDashboard() {
                 </div>
               </div>
             </div>
+
+            <LiveLocationSharer />
+
             <div className="mt-2">
               {active.data.status === 'accepted' && (
                 <button className="btn btn-primary btn-block" disabled={pickup.isPending} onClick={() => pickup.mutate(active.data!.id)}>
@@ -327,6 +331,81 @@ function ProfileSection() {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/**
+ * While a courier has an active delivery, share the device location so the
+ * customer and restaurant can track the order live. Uses the browser
+ * Geolocation API (requires permission). If the device has no GPS or permission
+ * is denied, the courier can fall back to a simulated location for the demo.
+ */
+function LiveLocationSharer() {
+  const report = useReportLocation();
+  const [sharing, setSharing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const watchId = useRef<number | null>(null);
+  const simTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stop = () => {
+    if (watchId.current !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+    if (simTimer.current !== null) {
+      clearInterval(simTimer.current);
+      simTimer.current = null;
+    }
+    setSharing(false);
+  };
+
+  // Clean up on unmount (delivery completed / tab changed).
+  useEffect(() => () => stop(), []);
+
+  const startGps = () => {
+    setError(null);
+    if (!('geolocation' in navigator)) {
+      setError('This device has no location support. Use the demo option below.');
+      return;
+    }
+    watchId.current = navigator.geolocation.watchPosition(
+      (pos) => report.mutate({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      () => setError('Location permission denied. You can use the demo option below.'),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+    setSharing(true);
+  };
+
+  // Demo fallback: drift a point around Riyadh so the map visibly moves without
+  // a real GPS signal.
+  const startSimulated = () => {
+    setError(null);
+    let lat = 24.7136;
+    let lng = 46.6753;
+    report.mutate({ latitude: lat, longitude: lng });
+    simTimer.current = setInterval(() => {
+      lat += (Math.random() - 0.4) * 0.002;
+      lng += (Math.random() - 0.4) * 0.002;
+      report.mutate({ latitude: lat, longitude: lng });
+    }, 5000);
+    setSharing(true);
+  };
+
+  return (
+    <div className="location-share mt-2">
+      {!sharing ? (
+        <div className="stack" style={{ gap: 8 }}>
+          <button className="btn btn-primary btn-block" onClick={startGps}>📡 Share live location</button>
+          <button className="btn btn-ghost btn-sm" onClick={startSimulated}>Use simulated location (demo)</button>
+        </div>
+      ) : (
+        <div className="row-between">
+          <span className="subtle">📡 Sharing your live location…</span>
+          <button className="btn btn-ghost btn-sm" onClick={stop}>Stop</button>
+        </div>
+      )}
+      {error && <div className="alert alert-error mt-2">{error}</div>}
     </div>
   );
 }

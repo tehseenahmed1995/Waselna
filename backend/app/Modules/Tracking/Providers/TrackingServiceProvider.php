@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Tracking\Providers;
 
+use App\Modules\Tracking\Http\Controllers\BroadcastAuthController;
+use App\Modules\Tracking\Http\Controllers\TrackingController;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -38,6 +41,13 @@ final class TrackingServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Route::middleware(['api', 'auth.bearer:required'])->prefix('api/v1')->group(function (): void {
+            // Courier reports its current position.
+            Route::post('tracking/location', [TrackingController::class, 'report']);
+            // Live tracking for an Order (customer / restaurant / admin).
+            Route::get('orders/{order}/tracking', [TrackingController::class, 'order']);
+            // Bearer-authenticated broadcasting auth for private channels.
+            Route::post('broadcasting/auth', [BroadcastAuthController::class, 'authenticate']);
+        });
     }
 }
