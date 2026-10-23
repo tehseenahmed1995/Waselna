@@ -26,6 +26,22 @@ final class DispatchController
         return new JsonResponse(['data' => $this->dispatch->activeJob($this->actor($request))], 200);
     }
 
+    public function history(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'from' => ['sometimes', 'nullable', 'date'],
+            'to' => ['sometimes', 'nullable', 'date'],
+        ]);
+
+        $result = $this->dispatch->history($this->actor($request), $validated);
+
+        return new JsonResponse([
+            'data' => $result['jobs'],
+            'meta' => ['total' => count($result['jobs']), 'totals' => $result['totals']],
+        ], 200);
+    }
+
     public function accept(Request $request, string $job): JsonResponse
     {
         return new JsonResponse(['data' => $this->dispatch->accept($this->actor($request), $job)], 200);

@@ -29,7 +29,7 @@ enum OrderStatus: string
     {
         return match ($this) {
             self::PendingPayment => 'Awaiting payment',
-            self::Confirmed => 'Confirmed',
+            self::Confirmed => 'Awaiting restaurant',
             self::Preparing => 'Preparing',
             self::ReadyForPickup => 'Ready for pickup',
             self::AssignedToRider => 'Rider assigned',

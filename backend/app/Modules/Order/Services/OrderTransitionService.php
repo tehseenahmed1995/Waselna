@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Order\Services;
 
+use App\Modules\Auth\Models\User;
 use App\Modules\Notification\Services\NotificationService;
 use App\Modules\Order\Domain\OrderStateMachine;
 use App\Modules\Order\Models\Order;
@@ -91,14 +92,42 @@ final class OrderTransitionService
             ['order_id' => $order->id, 'status' => $toState],
         );
 
+        // When a new order lands (confirmed), notify the restaurant's operator
+        // and staff so they can accept it from the kitchen queue.
+        if ($toState === OrderStateMachine::CONFIRMED) {
+            $this->notifyRestaurant($order);
+        }
+
         return $order;
+    }
+
+    /**
+     * Notify the Restaurant_Operator and all Restaurant_Staff of a restaurant
+     * that a new order has been placed and needs their attention.
+     */
+    private function notifyRestaurant(Order $order): void
+    {
+        $users = User::query()
+            ->where('restaurant_id', $order->restaurant_id)
+            ->whereIn('role', ['restaurant_operator', 'restaurant_staff'])
+            ->pluck('id');
+
+        foreach ($users as $userId) {
+            $this->notifications->record(
+                (string) $userId,
+                'order.new',
+                'New order '.$order->order_number,
+                'A new order has been placed. Head to the kitchen queue to accept it.',
+                ['order_id' => $order->id],
+            );
+        }
     }
 
     private function messageFor(string $state): string
     {
         return match ($state) {
-            OrderStateMachine::CONFIRMED => 'Your order is confirmed.',
-            OrderStateMachine::PREPARING => 'The restaurant is preparing your order.',
+            OrderStateMachine::CONFIRMED => 'Order placed. Waiting for the restaurant to accept it.',
+            OrderStateMachine::PREPARING => 'The restaurant accepted your order and is preparing it.',
             OrderStateMachine::READY_FOR_PICKUP => 'Your order is ready and waiting for a courier.',
             OrderStateMachine::ASSIGNED_TO_RIDER => 'A courier has been assigned to your order.',
             OrderStateMachine::PICKED_UP => 'Your order has been picked up.',

@@ -197,3 +197,68 @@ export function useRemoveStaff() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurant-staff'] }),
   });
 }
+
+// ---- Order history (business-owner view) ------------------------------------
+export interface Money {
+  amount: number;
+  currency: string;
+}
+
+export interface OrderSummary {
+  id: string;
+  order_number: string;
+  status: string;
+  currency: string;
+  order_total: Money;
+  line_count: number;
+  lines: { quantity: number; name: string }[];
+  created_at: string;
+}
+
+export interface OrderHistoryTotals {
+  count: number;
+  delivered: number;
+  revenue: Money;
+}
+
+export interface OrderFilters {
+  status?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+}
+
+export function useOrderHistory(filters: OrderFilters) {
+  const params = new URLSearchParams();
+  if (filters.status) params.set('status', filters.status);
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+  if (filters.search) params.set('search', filters.search);
+  const qs = params.toString();
+
+  return useQuery({
+    queryKey: ['order-history', filters],
+    queryFn: () => apiFetch<OrderSummary[]>(`/restaurant/orders/history${qs ? `?${qs}` : ''}`),
+  });
+}
+
+export interface OrderDetail {
+  id: string;
+  order_number: string;
+  status: string;
+  currency: string;
+  breakdown: Record<string, Money>;
+  lines: { id: string; quantity: number; unit_price: Money; subtotal: Money; snapshot: { name?: string } | null }[];
+  delivery_address: Record<string, unknown> | null;
+  created_at: string;
+  payment?: { status: string; amount: Money; transaction_id: string | null };
+  timeline?: { status: string; actor_role: string; notes: string | null; at: string }[];
+}
+
+export function useOrderDetail(orderId: string | null) {
+  return useQuery({
+    queryKey: ['order-detail', orderId],
+    queryFn: () => apiFetch<OrderDetail>(`/orders/${orderId}`),
+    enabled: orderId !== null,
+  });
+}

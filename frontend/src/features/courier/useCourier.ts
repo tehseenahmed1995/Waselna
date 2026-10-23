@@ -8,6 +8,11 @@ export interface RiderProfile {
   rider_status: 'online' | 'offline' | 'on_delivery' | 'on_break' | 'suspended';
 }
 
+export interface GeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
 export interface Job {
   id: string;
   order_id: string;
@@ -15,7 +20,11 @@ export interface Job {
   status: string;
   order_status: string | null;
   order_total: Money | null;
+  item_count: number;
+  restaurant_name: string | null;
   delivery_address: Record<string, unknown> | null;
+  pickup_location: GeoPoint | null;
+  dropoff_location: GeoPoint | null;
 }
 
 export function useRiderProfile() {
@@ -67,5 +76,31 @@ export function useJobAction(action: 'accept' | 'pickup' | 'transit' | 'deliver'
   return useMutation({
     mutationFn: (jobId: string) => apiFetch<Job>(`/dispatch/jobs/${jobId}/${action}`, { method: 'POST' }),
     onSuccess: () => invalidateAll(qc),
+  });
+}
+
+// ---- Delivery history -------------------------------------------------------
+export interface CourierJobHistory extends Job {
+  delivered_at: string | null;
+  created_at: string | null;
+}
+
+export interface CourierHistoryFilters {
+  status?: string;
+  from?: string;
+  to?: string;
+}
+
+export function useCourierHistory(filters: CourierHistoryFilters, enabled: boolean) {
+  const params = new URLSearchParams();
+  if (filters.status) params.set('status', filters.status);
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+  const qs = params.toString();
+
+  return useQuery({
+    queryKey: ['dispatch-history', filters],
+    queryFn: () => apiFetch<CourierJobHistory[]>(`/dispatch/history${qs ? `?${qs}` : ''}`),
+    enabled,
   });
 }

@@ -43,6 +43,7 @@ final class CheckoutService
         private readonly PricingEngine $pricing,
         private readonly OrderNumberGenerator $numbers,
         private readonly PlatformConfigurationReader $configuration,
+        private readonly OrderTransitionService $transitions,
         private readonly Clock $clock,
     ) {}
 
@@ -50,7 +51,7 @@ final class CheckoutService
      * @param  array<string, mixed>  $address
      * @return array<string, mixed>
      */
-    public function checkout(string $customerId, string $idempotencyKey, array $address, ?string $notes = null): array
+    public function checkout(string $customerId, string $idempotencyKey, array $address, ?string $notes = null, string $paymentMethod = 'cash_on_delivery'): array
     {
         // Idempotency: a prior Order under this key is replayed (Requirement 8.3).
         $existing = DB::table('idempotency_keys')
@@ -140,7 +141,7 @@ final class CheckoutService
 
         $quote = $breakdown->toArray();
 
-        return DB::transaction(function () use (
+        $order = DB::transaction(function () use (
             $customerId,
             $idempotencyKey,
             $restaurant,
@@ -150,7 +151,7 @@ final class CheckoutService
             $lineSnapshots,
             $quote,
             $currency,
-        ): array {
+        ): Order {
             $orderNumber = $this->uniqueOrderNumber();
             $now = $this->clock->nowUtc();
 
@@ -208,8 +209,29 @@ final class CheckoutService
 
             $order->setRelation('lines', $order->lines()->get());
 
-            return $this->present($order);
+            return $order;
         });
+
+        // Cash on delivery: there is nothing to capture up front, so the order
+        // is confirmed immediately and handed to the restaurant. (A future card
+        // gateway would instead leave the order in pending_payment for a
+        // separate capture step.)
+        if ($paymentMethod === 'cash_on_delivery') {
+            $order = $this->transitions->transition(
+                $order->id,
+                OrderStateMachine::CONFIRMED,
+                'system',
+                null,
+                'Cash on delivery — confirmed at checkout.',
+            );
+            $order->setRelation('lines', $order->lines()->get());
+        }
+
+        // The Cart is consumed by a successful checkout: empty it so the next
+        // visit starts fresh (Requirement 8).
+        $this->carts->clear($customerId);
+
+        return $this->present($order);
     }
 
     private function selectBranch(string $restaurantId): RestaurantBranch

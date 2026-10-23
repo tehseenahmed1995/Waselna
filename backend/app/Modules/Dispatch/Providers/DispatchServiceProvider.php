@@ -23,6 +23,7 @@ final class DispatchServiceProvider extends ServiceProvider
         Route::middleware(['api', 'auth.bearer:required'])->prefix('api/v1')->group(function (): void {
             Route::get('dispatch/available', [DispatchController::class, 'available']);
             Route::get('dispatch/active', [DispatchController::class, 'active']);
+            Route::get('dispatch/history', [DispatchController::class, 'history']);
             Route::post('dispatch/jobs/{job}/accept', [DispatchController::class, 'accept']);
             Route::post('dispatch/jobs/{job}/pickup', [DispatchController::class, 'pickup']);
             Route::post('dispatch/jobs/{job}/transit', [DispatchController::class, 'transit']);

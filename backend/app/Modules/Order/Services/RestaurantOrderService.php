@@ -52,6 +52,68 @@ final class RestaurantOrderService
     }
 
     /**
+     * The full order history for the operator's Restaurant with optional
+     * filters, newest first, plus aggregate totals for the filtered set. This is
+     * the business-owner view (every order, not just the active queue).
+     *
+     * @param  array<string, mixed>  $filters  status, from (Y-m-d), to (Y-m-d), search (order number)
+     * @return array{orders: list<array<string, mixed>>, totals: array<string, mixed>}
+     */
+    public function history(ActorContext $actor, array $filters = []): array
+    {
+        // Business-owner view: operators only. Staff are limited to the active
+        // kitchen queue, so the full order history is off-limits to them.
+        $restaurantId = $this->operatorRestaurantId($actor);
+
+        $query = Order::query()->where('restaurant_id', $restaurantId)->with('lines');
+
+        if (! empty($filters['status'])) {
+            $query->where('status', (string) $filters['status']);
+        }
+        if (! empty($filters['from'])) {
+            $query->whereDate('created_at', '>=', (string) $filters['from']);
+        }
+        if (! empty($filters['to'])) {
+            $query->whereDate('created_at', '<=', (string) $filters['to']);
+        }
+        if (! empty($filters['search'])) {
+            $query->where('order_number', 'like', '%'.$filters['search'].'%');
+        }
+
+        $orders = $query->orderByDesc('created_at')->limit(500)->get();
+
+        // Aggregate totals over the filtered set. Revenue counts only orders that
+        // were not rejected/cancelled/failed (i.e. real sales).
+        $deadStates = [
+            OrderStateMachine::REJECTED,
+            OrderStateMachine::CANCELLED,
+            OrderStateMachine::FAILED,
+            OrderStateMachine::PAYMENT_FAILED,
+        ];
+        $revenue = 0;
+        $delivered = 0;
+        foreach ($orders as $o) {
+            if (! in_array($o->status, $deadStates, true)) {
+                $revenue += (int) $o->total_amount_minor;
+            }
+            if ($o->status === OrderStateMachine::DELIVERED) {
+                $delivered++;
+            }
+        }
+
+        $currency = $orders->first()->currency ?? 'USD';
+
+        return [
+            'orders' => $orders->map(fn (Order $order): array => $this->summary($order))->all(),
+            'totals' => [
+                'count' => $orders->count(),
+                'delivered' => $delivered,
+                'revenue' => ['amount' => $revenue, 'currency' => $currency],
+            ],
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function accept(ActorContext $actor, string $orderId): array
@@ -111,6 +173,20 @@ final class RestaurantOrderService
     private function restaurantId(ActorContext $actor): string
     {
         if (! $actor->hasRole('restaurant_operator', 'restaurant_staff') || $actor->restaurantId === null) {
+            throw AuthorizationException::forbidden();
+        }
+
+        return $actor->restaurantId;
+    }
+
+    /**
+     * The acting operator's Restaurant, operator-only. Unlike restaurantId(),
+     * this rejects Restaurant_Staff: the full order history is a business-owner
+     * surface, not a kitchen surface.
+     */
+    private function operatorRestaurantId(ActorContext $actor): string
+    {
+        if (! $actor->hasRole('restaurant_operator') || $actor->restaurantId === null) {
             throw AuthorizationException::forbidden();
         }
 

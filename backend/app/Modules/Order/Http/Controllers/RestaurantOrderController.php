@@ -21,6 +21,23 @@ final class RestaurantOrderController
         return new JsonResponse(['data' => $data, 'meta' => ['total' => count($data), 'next_cursor' => null]], 200);
     }
 
+    public function history(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'from' => ['sometimes', 'nullable', 'date'],
+            'to' => ['sometimes', 'nullable', 'date'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:40'],
+        ]);
+
+        $result = $this->service->history($this->actor($request), $validated);
+
+        return new JsonResponse([
+            'data' => $result['orders'],
+            'meta' => ['total' => count($result['orders']), 'totals' => $result['totals']],
+        ], 200);
+    }
+
     public function accept(Request $request, string $order): JsonResponse
     {
         return new JsonResponse(['data' => $this->service->accept($this->actor($request), $order)], 200);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useOrder, useOrders, usePay } from './useOrders';
+import { useOrder, useOrders } from './useOrders';
 import { useSubmitReview } from './useReview';
 import { money } from '../cart/useCart';
 import { useEnums } from '../../shared/enums';
@@ -18,7 +18,6 @@ const PAYMENT_LABELS: Record<string, string> = {
 export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
   const orders = useOrders();
   const focused = useOrder(focusOrderId);
-  const pay = usePay();
   const review = useSubmitReview();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
@@ -27,7 +26,6 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
   if (focusOrderId && focused.data) {
     const o = focused.data;
     const payment = o.payment;
-    const awaitingPayment = o.status === 'pending_payment';
     const paid = payment?.status === 'captured';
     const delivered = o.status === 'delivered';
 
@@ -63,36 +61,20 @@ export function OrdersView({ focusOrderId }: { focusOrderId: string | null }) {
             <div className="row-between">
               <h3>Payment</h3>
               <span className={`badge ${paid ? 'badge-active' : ''}`}>
-                {PAYMENT_LABELS[payment?.status ?? 'none'] ?? payment?.status}
+                {paid ? (PAYMENT_LABELS.captured) : 'Cash on delivery'}
               </span>
             </div>
 
-            {awaitingPayment && (
-              <div className="mt-4">
-                <p className="subtle" style={{ marginTop: 0 }}>
-                  Pay {money(o.breakdown.order_total)} with the simulated gateway to confirm your order.
-                </p>
-                <button
-                  className="btn btn-primary btn-block"
-                  disabled={pay.isPending}
-                  onClick={() => pay.mutate(o.id)}
-                >
-                  {pay.isPending ? 'Processing payment…' : `Pay ${money(o.breakdown.order_total)}`}
-                </button>
-                {pay.isError && (
-                  <div className="alert alert-error">Payment could not be processed. Try again.</div>
-                )}
-              </div>
-            )}
-
-            {paid && (
+            {paid ? (
               <div className="alert alert-success mt-2">
                 Payment captured{payment?.transaction_id ? ` · ${payment.transaction_id}` : ''}
               </div>
-            )}
-
-            {!awaitingPayment && !paid && payment && payment.status !== 'none' && (
-              <div className="alert alert-error mt-2">Payment {PAYMENT_LABELS[payment.status] ?? payment.status}.</div>
+            ) : (
+              <div className="mt-2">
+                <p className="subtle" style={{ marginTop: 0 }}>
+                  Pay {money(o.breakdown.order_total)} in cash when your order is delivered.
+                </p>
+              </div>
             )}
           </div>
         </div>

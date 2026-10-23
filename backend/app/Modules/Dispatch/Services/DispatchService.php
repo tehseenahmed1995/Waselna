@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Dispatch\Services;
 
 use App\Modules\Auth\Domain\ActorContext;
+use App\Modules\Catalog\Models\Restaurant;
 use App\Modules\Catalog\Models\RestaurantBranch;
 use App\Modules\Dispatch\Models\DeliveryJob;
 use App\Modules\Order\Domain\OrderStateMachine;
@@ -102,6 +103,59 @@ final class DispatchService
             ->first();
 
         return $job === null ? null : $this->summary($job);
+    }
+
+    /**
+     * The Courier's delivery history with optional filters, newest first, plus
+     * aggregate totals. Scoped to the acting Courier's own jobs.
+     *
+     * @param  array<string, mixed>  $filters  status, from (Y-m-d), to (Y-m-d)
+     * @return array{jobs: list<array<string, mixed>>, totals: array<string, mixed>}
+     */
+    public function history(ActorContext $actor, array $filters = []): array
+    {
+        $this->assertCourier($actor);
+
+        $query = DeliveryJob::query()->where('assigned_courier_id', $actor->userId);
+
+        if (! empty($filters['status'])) {
+            $query->where('status', (string) $filters['status']);
+        }
+        if (! empty($filters['from'])) {
+            $query->whereDate('created_at', '>=', (string) $filters['from']);
+        }
+        if (! empty($filters['to'])) {
+            $query->whereDate('created_at', '<=', (string) $filters['to']);
+        }
+
+        $jobs = $query->orderByDesc('created_at')->limit(500)->get();
+
+        $delivered = 0;
+        $earnings = 0;
+        $currency = 'USD';
+        $summaries = [];
+        foreach ($jobs as $job) {
+            $summary = $this->summary($job);
+            $summaries[] = $summary;
+            if ($job->status === 'delivered') {
+                $delivered++;
+                if ($summary['order_total'] !== null) {
+                    $earnings += (int) $summary['order_total']['amount'];
+                    $currency = (string) $summary['order_total']['currency'];
+                }
+            }
+        }
+
+        return [
+            'jobs' => $summaries,
+            'totals' => [
+                'count' => $jobs->count(),
+                'delivered' => $delivered,
+                // Sum of delivered order totals (a stand-in for courier earnings
+                // until a payout model exists).
+                'delivered_value' => ['amount' => $earnings, 'currency' => $currency],
+            ],
+        ];
     }
 
     /**
@@ -241,7 +295,16 @@ final class DispatchService
     private function summary(DeliveryJob $job): array
     {
         /** @var Order|null $order */
-        $order = Order::query()->find($job->order_id);
+        $order = Order::query()->with('lines')->find($job->order_id);
+
+        $restaurantName = null;
+        $itemCount = 0;
+        if ($order !== null) {
+            /** @var Restaurant|null $restaurant */
+            $restaurant = Restaurant::query()->find($order->restaurant_id);
+            $restaurantName = $restaurant?->name;
+            $itemCount = (int) $order->lines->sum('quantity');
+        }
 
         return [
             'id' => $job->id,
@@ -250,9 +313,13 @@ final class DispatchService
             'status' => $job->status,
             'order_status' => $order?->status,
             'order_total' => $order === null ? null : ['amount' => $order->total_amount_minor, 'currency' => $order->currency],
+            'item_count' => $itemCount,
+            'restaurant_name' => $restaurantName,
             'delivery_address' => $order?->delivery_address_snapshot,
             'pickup_location' => $job->pickup_location,
             'dropoff_location' => $job->dropoff_location,
+            'delivered_at' => $job->delivered_at,
+            'created_at' => $job->created_at,
         ];
     }
 }

@@ -29,6 +29,7 @@ final class OrderServiceProvider extends ServiceProvider
 
             // Restaurant operator/staff order queue and handling (Requirement 12).
             Route::get('restaurant/orders', [RestaurantOrderController::class, 'queue']);
+            Route::get('restaurant/orders/history', [RestaurantOrderController::class, 'history']);
             Route::post('restaurant/orders/{order}/accept', [RestaurantOrderController::class, 'accept']);
             Route::post('restaurant/orders/{order}/reject', [RestaurantOrderController::class, 'reject']);
             Route::post('restaurant/orders/{order}/ready', [RestaurantOrderController::class, 'ready']);

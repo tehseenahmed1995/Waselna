@@ -248,10 +248,13 @@ h3 {
   color: var(--muted);
   cursor: pointer;
 }
-.tab.active {
-  background: #fff;
+.tab:hover:not(.active) {
   color: var(--text);
-  box-shadow: var(--shadow);
+}
+.tab.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
 }
 
 /* Alerts */
@@ -889,3 +892,126 @@ h3 {
   border-radius: 8px;
   border: 1px solid var(--border);
 }
+
+/* Checkout payment method option. */
+.pay-method {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.pay-method-selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.pay-method-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* Clickable order-history rows + wider detail modal. */
+.list-row-button {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.list-row-button:hover {
+  background: var(--bg);
+}
+
+.modal-card-lg {
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: auto;
+}
+
+/* Courier active-delivery pickup/dropoff legs. */
+.delivery-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.delivery-leg {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.delivery-leg-icon {
+  font-size: 18px;
+  line-height: 1.2;
+  flex: none;
+}
+
+/* ---- Courier vehicle picker + colour accents ------------------------------ */
+.vehicle-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.vehicle-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+}
+
+.vehicle-option:hover {
+  border-color: var(--primary);
+}
+
+.vehicle-option.selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+
+.vehicle-option-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+/* Give the courier dashboard a bit of life: the delivery legs and status get a
+   coloured left accent so the plain cards feel less flat. */
+.delivery-detail {
+  border-left: 3px solid var(--primary);
+}
+
+.delivery-leg-icon {
+  background: var(--primary-soft);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+

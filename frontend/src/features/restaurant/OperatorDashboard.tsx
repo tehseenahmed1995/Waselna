@@ -24,12 +24,15 @@ import {
   useStaff,
   useInviteStaff,
   useRemoveStaff,
+  useOrderHistory,
+  useOrderDetail,
   type RestaurantProfile,
   type MenuCategory,
   type MenuItem,
   type NewMenuItem,
   type StaffMember,
   type NewStaff,
+  type OrderFilters,
 } from './useRestaurant';
 
 const KITCHEN_LABELS: Record<string, string> = {
@@ -37,11 +40,12 @@ const KITCHEN_LABELS: Record<string, string> = {
   ready_for_pickup: 'Ready',
 };
 
-type Section = 'overview' | 'menu' | 'staff' | 'profile' | 'orders';
+type Section = 'overview' | 'menu' | 'history' | 'staff' | 'profile' | 'orders';
 
 const NAV: { key: Section; label: string; icon: string }[] = [
   { key: 'overview', label: 'Overview', icon: '▣' },
   { key: 'menu', label: 'Menu', icon: '🍽' },
+  { key: 'history', label: 'Order details', icon: '📊' },
   { key: 'staff', label: 'Staff', icon: '👥' },
   { key: 'profile', label: 'Profile', icon: '🏪' },
   { key: 'orders', label: 'Kitchen queue', icon: '🧾' },
@@ -76,6 +80,7 @@ export function OperatorDashboard({ role = 'restaurant_operator' }: { role?: str
       <div className="admin-content stack">
         {!isStaff && section === 'overview' && <OverviewSection restaurantId={restaurantId} onGo={setSection} />}
         {!isStaff && section === 'menu' && <MenuSection restaurantId={restaurantId} />}
+        {!isStaff && section === 'history' && <OrderHistorySection />}
         {!isStaff && section === 'staff' && <StaffSection active={section === 'staff'} />}
         {!isStaff && section === 'profile' && <ProfileSection restaurantId={restaurantId} />}
         {section === 'orders' && <OrdersSection />}
@@ -692,6 +697,167 @@ function StaffModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ---- Order history (business-owner view) ------------------------------------
+function OrderHistorySection() {
+  const { data } = useEnums();
+  const { orderStatusLabel } = useEnums();
+  const [filters, setFilters] = useState<OrderFilters>({});
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const history = useOrderHistory(filters);
+
+  const orders = history.data ?? [];
+
+  // Derive totals client-side from the filtered set. Revenue excludes
+  // rejected/cancelled/failed orders (not real sales).
+  const dead = ['rejected', 'cancelled', 'failed', 'payment_failed'];
+  const revenue = orders.filter((o) => !dead.includes(o.status)).reduce((sum, o) => sum + o.order_total.amount, 0);
+  const delivered = orders.filter((o) => o.status === 'delivered').length;
+  const currency = orders[0]?.order_total.currency ?? 'USD';
+
+  const update = (patch: Partial<OrderFilters>) => setFilters((f) => ({ ...f, ...patch }));
+
+  return (
+    <div className="stack">
+      <h1>Order details</h1>
+
+      {/* Filters */}
+      <div className="card">
+        <div className="card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+          <div className="field">
+            <label htmlFor="of-status">Status</label>
+            <select id="of-status" className="input" value={filters.status ?? ''} onChange={(e) => update({ status: e.target.value || undefined })}>
+              <option value="">All statuses</option>
+              {data.order_statuses.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="of-from">From</label>
+            <input id="of-from" className="input" type="date" value={filters.from ?? ''} onChange={(e) => update({ from: e.target.value || undefined })} />
+          </div>
+          <div className="field">
+            <label htmlFor="of-to">To</label>
+            <input id="of-to" className="input" type="date" value={filters.to ?? ''} onChange={(e) => update({ to: e.target.value || undefined })} />
+          </div>
+          <div className="field">
+            <label htmlFor="of-search">Order number</label>
+            <input id="of-search" className="input" value={filters.search ?? ''} onChange={(e) => update({ search: e.target.value || undefined })} placeholder="WAS-…" />
+          </div>
+        </div>
+      </div>
+
+      {/* Totals */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
+        <Stat label="Orders" value={orders.length} />
+        <Stat label="Delivered" value={delivered} />
+        <Stat label="Revenue" value={money({ amount: revenue, currency })} />
+      </div>
+
+      {/* List */}
+      <div className="card">
+        {history.isLoading && <div className="empty"><span className="spinner" /> Loading…</div>}
+        {!history.isLoading && orders.length === 0 && <div className="empty">No orders match these filters.</div>}
+        {orders.map((o) => (
+          <button key={o.id} className="list-row list-row-button" onClick={() => setDetailId(o.id)}>
+            <div className="row-main">
+              <strong>{o.order_number}</strong>
+              <span className="subtle">{o.line_count} item(s) · {new Date(o.created_at).toLocaleString()}</span>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div className="price">{money(o.order_total)}</div>
+              <span className="badge">{orderStatusLabel(o.status)}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {detailId && <OrderDetailModal orderId={detailId} onClose={() => setDetailId(null)} />}
+    </div>
+  );
+}
+
+function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
+  const detail = useOrderDetail(orderId);
+  const { orderStatusLabel } = useEnums();
+  const o = detail.data;
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card modal-card-lg" onClick={(e) => e.stopPropagation()}>
+        {!o && <div className="empty"><span className="spinner" /> Loading…</div>}
+        {o && (
+          <div className="stack">
+            <div className="row-between">
+              <h3 style={{ margin: 0 }}>Order {o.order_number}</h3>
+              <span className="badge badge-active">{orderStatusLabel(o.status)}</span>
+            </div>
+            <div className="subtle" style={{ marginTop: -6 }}>{new Date(o.created_at).toLocaleString()}</div>
+
+            <div>
+              <h4 style={{ margin: '4px 0' }}>Items</h4>
+              {o.lines.map((l) => (
+                <div className="summary-row" key={l.id}>
+                  <span>{l.quantity} × {l.snapshot?.name ?? 'Item'}</span>
+                  <span>{money(l.subtotal)}</span>
+                </div>
+              ))}
+              <div className="summary-row"><span>Delivery fee</span><span>{money(o.breakdown.delivery_fee)}</span></div>
+              <div className="summary-row"><span>Service fee</span><span>{money(o.breakdown.service_fee)}</span></div>
+              <div className="summary-row"><span>Tax</span><span>{money(o.breakdown.tax_amount)}</span></div>
+              <div className="summary-row total"><span>Total</span><span>{money(o.breakdown.order_total)}</span></div>
+            </div>
+
+            {o.payment && (
+              <div>
+                <h4 style={{ margin: '4px 0' }}>Payment</h4>
+                <div className="summary-row">
+                  <span>{o.payment.status === 'none' ? 'Cash on delivery' : o.payment.status}</span>
+                  <span>{money(o.payment.amount)}</span>
+                </div>
+              </div>
+            )}
+
+            {o.delivery_address && (
+              <div>
+                <h4 style={{ margin: '4px 0' }}>Delivery address</h4>
+                <div className="subtle">
+                  {[o.delivery_address.line1, o.delivery_address.city].map((v) => (typeof v === 'string' ? v : '')).filter(Boolean).join(', ') || '—'}
+                </div>
+              </div>
+            )}
+
+            {o.timeline && o.timeline.length > 0 && (
+              <div>
+                <h4 style={{ margin: '4px 0' }}>Timeline</h4>
+                {o.timeline.map((t, i) => (
+                  <div className="summary-row" key={i}>
+                    <strong style={{ fontSize: 13 }}>{orderStatusLabel(t.status)}</strong>
+                    <span className="subtle">{new Date(t.at).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="row-between" style={{ justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={onClose}>Close</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="card">
+      <div className="card-body">
+        <div className="subtle">{label}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>{value}</div>
       </div>
     </div>
   );

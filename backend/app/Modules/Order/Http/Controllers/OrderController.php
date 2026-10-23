@@ -38,6 +38,8 @@ final class OrderController
             'delivery_address.line1' => ['required', 'string', 'max:255'],
             'delivery_address.city' => ['required', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:500'],
+            // Only cash on delivery for now; a gateway method can be added later.
+            'payment_method' => ['sometimes', 'string', 'in:cash_on_delivery'],
         ]);
 
         $data = $this->checkout->checkout(
@@ -45,6 +47,7 @@ final class OrderController
             trim($idempotencyKey),
             $validated['delivery_address'],
             $validated['notes'] ?? null,
+            $validated['payment_method'] ?? 'cash_on_delivery',
         );
 
         return new JsonResponse(['data' => $data], 201);

@@ -69,7 +69,7 @@ export function useCheckout() {
     mutationFn: (input: { address: { line1: string; city: string }; notes?: string }) =>
       apiFetch<Order>('/orders', {
         method: 'POST',
-        body: { delivery_address: input.address, notes: input.notes },
+        body: { delivery_address: input.address, notes: input.notes, payment_method: 'cash_on_delivery' },
         headers: { 'Idempotency-Key': crypto.randomUUID() },
       }),
     onSuccess: () => {
